@@ -214,8 +214,7 @@ class AmandroidSocket {
       if(myListener_opt.isDefined) 
         entryPoints = myListener_opt.get.entryPointFilter(entryPoints)
   
-      //initialize each component's holeNodes and sharable local facts
-        var holeNodesMap : IMap[JawaRecord, ISet[CGNode]] = Map()
+      //initialize each component's sharable local facts        
         var globalFactsMap : IMap[JawaRecord, ISet[RFAFact]] = Map()
         var icfgMap : IMap[JawaRecord, InterproceduralControlFlowGraph[CGNode]] = Map()
         var irfaResultMap : IMap[JawaRecord, AndroidReachingFactsAnalysisExtended.Result] = Map()
@@ -223,14 +222,12 @@ class AmandroidSocket {
         
       entryPoints.map { 
         ep => 
-               holeNodesMap += (ep.getDeclaringRecord -> AndroidRFAConfig.getInitialHoleNodes(ep.getDeclaringRecord))
-               globalFactsMap += (ep.getDeclaringRecord -> AndroidRFAConfig.getInitialGlobalFacts(ep.getDeclaringRecord))
                
+              globalFactsMap += (ep.getDeclaringRecord -> AndroidRFAConfig.getInitialGlobalFacts(ep.getDeclaringRecord))              
               val initialfacts = AndroidRFAConfig.getInitialFactsForMainEnvironment(ep)
               val (icfg, irfaResult) = AndroidReachingFactsAnalysisExtended(ep, null, null, initialfacts, new ClassLoadManager)
               icfgMap +=(ep.getDeclaringRecord -> icfg)
-              irfaResultMap += (ep.getDeclaringRecord -> irfaResult)
-              holeNodesMap += (ep.getDeclaringRecord -> irfaResult.getHoleNodes())
+              irfaResultMap += (ep.getDeclaringRecord -> irfaResult)              
               globalFactsMap +=(ep.getDeclaringRecord -> irfaResult.getExtraFacts())
        }
       
@@ -249,27 +246,28 @@ class AmandroidSocket {
         {if(parallel) entryPoints.par else entryPoints}.foreach{
           ep =>
             try{
-              msg_critical(TITLE, "--------------Component " + ep + "--------------")
-              
+              msg_critical(TITLE, "--------------Component " + ep + "--------------")              
               globalFactsMap += (ep.getDeclaringRecord -> aggGlobalFacts)
               
               val initialfacts = AndroidRFAConfig.getInitialFactsForMainEnvironment(ep)
               val preIcfg = icfgMap(ep.getDeclaringRecord)
-              var preIrfaResult = irfaResultMap(ep.getDeclaringRecord)
-              
+              var preIrfaResult = irfaResultMap(ep.getDeclaringRecord)              
               preIrfaResult.setExtrafacts(aggGlobalFacts)
               
-              val (icfg, irfaResult) = AndroidReachingFactsAnalysisExtended(ep, preIcfg, preIrfaResult, initialfacts, new ClassLoadManager)
-              
+              val (icfg, irfaResult) = AndroidReachingFactsAnalysisExtended(ep, preIcfg, preIrfaResult, initialfacts, new ClassLoadManager)              
               icfgMap +=(ep.getDeclaringRecord -> icfg)
               irfaResultMap += (ep.getDeclaringRecord -> irfaResult)
+              if(!irfaResult.getExtraFacts().diff(preIrfaResult.getExtraFacts()).isEmpty) {
+                converged = false
+              }
+              
 //     
 //              System.out.println("icfg and irfaRes done. " + " holeNodes num = " + irfaResult.getHoleNodes().size)
 //              System.out.println(" irfaRes extra facts size = " + irfaResult.getExtraFacts().toString)
 //              val (icfg2, irfaResult2) = AndroidReachingFactsAnalysisExtended(ep, icfg, null, initialfacts, new ClassLoadManager)
 //        
               System.out.println("icfg and irfaRes done. " + " holeNodes num = " + irfaResult.getHoleNodes().size)
-              System.out.println(" irfaRes extra facts size = " + irfaResult.getExtraFacts().toString)
+              System.out.println(" irfaRes extra facts = " + irfaResult.getExtraFacts().toString)
 //           
 //              val outputDir = AndroidGlobalConfig.amandroid_home + "/output"            
 //              val dotDirFile = new File(outputDir + "/" + "toDot")

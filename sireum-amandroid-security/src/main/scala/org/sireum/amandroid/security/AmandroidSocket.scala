@@ -44,6 +44,7 @@ import org.sireum.util.IMap
 import org.sireum.jawa.JawaRecord
 
 
+
 /**
  * @author <a href="mailto:fgwei@k-state.edu">Fengguo Wei</a>
  * @author <a href="mailto:sroy@k-state.edu">Sankardas Roy</a>
@@ -214,31 +215,28 @@ class AmandroidSocket {
       if(myListener_opt.isDefined) 
         entryPoints = myListener_opt.get.entryPointFilter(entryPoints)
   
-      //initialize each component's sharable local facts        
-        var globalFactsMap : IMap[JawaRecord, ISet[RFAFact]] = Map()
+      //initialize each component's sharable local facts (slfPool)       
+        var slfPool : IMap[JawaRecord, ISet[RFAFact]] = Map()
         var icfgMap : IMap[JawaRecord, InterproceduralControlFlowGraph[CGNode]] = Map()
         var irfaResultMap : IMap[JawaRecord, AndroidReachingFactsAnalysisExtended.Result] = Map()
         var aggGlobalFacts : ISet[RFAFact] = Set()
         
       entryPoints.map { 
-        ep => 
-               
-              globalFactsMap += (ep.getDeclaringRecord -> AndroidRFAConfig.getInitialGlobalFacts(ep.getDeclaringRecord))              
+        ep =>                
+              slfPool += (ep.getDeclaringRecord -> AndroidRFAConfig.getInitialGlobalFacts(ep.getDeclaringRecord))              
               val initialfacts = AndroidRFAConfig.getInitialFactsForMainEnvironment(ep)
               val (icfg, irfaResult) = AndroidReachingFactsAnalysisExtended(ep, null, null, initialfacts, new ClassLoadManager)
               icfgMap +=(ep.getDeclaringRecord -> icfg)
               irfaResultMap += (ep.getDeclaringRecord -> irfaResult)              
-              globalFactsMap +=(ep.getDeclaringRecord -> irfaResult.getExtraFacts())
+              slfPool +=(ep.getDeclaringRecord -> irfaResult.getExtraFacts())              
        }
-      
-      
+            
       //inter-component merging starts
-      var converged = false
-      
+      var converged = false      
       while(converged != true){
         converged = true
         entryPoints.map {
-          ep => aggGlobalFacts ++= globalFactsMap(ep.getDeclaringRecord)
+          ep => aggGlobalFacts ++= slfPool(ep.getDeclaringRecord)
         }
         
         System.out.println(" aggGlobalFacts extra facts  = " + aggGlobalFacts.toString)
@@ -247,7 +245,7 @@ class AmandroidSocket {
           ep =>
             try{
               msg_critical(TITLE, "--------------Component " + ep + "--------------")              
-              globalFactsMap += (ep.getDeclaringRecord -> aggGlobalFacts)
+              slfPool += (ep.getDeclaringRecord -> aggGlobalFacts)
               
               val initialfacts = AndroidRFAConfig.getInitialFactsForMainEnvironment(ep)
               val preIcfg = icfgMap(ep.getDeclaringRecord)

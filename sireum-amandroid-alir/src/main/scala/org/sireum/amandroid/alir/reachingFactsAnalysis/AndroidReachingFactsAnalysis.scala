@@ -85,7 +85,6 @@ class AndroidReachingFactsAnalysisBuilder(clm : ClassLoadManager){
    initContext : Context,
    switchAsOrderedMatch : Boolean) : (InterproceduralControlFlowGraph[CGNode], AndroidReachingFactsAnalysisExtended.Result) = {
     val gen = new Gen
-    val extraGen = new ExtraGen
     val kill = new Kill
     val callr = new Callr
     val nl = new NodeL
@@ -96,7 +95,7 @@ class AndroidReachingFactsAnalysisBuilder(clm : ClassLoadManager){
       cg.collectCfgToBaseGraph(entryPointProc, initContext, true)
     val iota : ISet[RFAFact] = initialFacts + RFAFact(VarSlot("@@RFAiota"), NullInstance(initContext))
     val result = InterProceduralMonotoneDataFlowAnalysisFrameworkExtended[RFAFact](cg, existingIrfaResult,
-      true, true, false, AndroidReachingFactsAnalysisConfig.parallel, gen, extraGen, kill, callr, iota, initial, switchAsOrderedMatch, Some(nl))
+      true, true, false, AndroidReachingFactsAnalysisConfig.parallel, gen, kill, callr, iota, initial, switchAsOrderedMatch, Some(nl))
     (cg, result)
   }
   
@@ -271,6 +270,9 @@ class AndroidReachingFactsAnalysisBuilder(clm : ClassLoadManager){
     
     def apply(s : ISet[RFAFact], a : Assignment, currentNode : CGLocNode) : ISet[RFAFact] = {
       var result : ISet[RFAFact] = isetEmpty
+      val HOLE_NODES = "holeNodes"
+      val GLOBAL_FACTS = "globalFacts"
+            
       if(isInterestingAssignment(a)){
         val lhss = PilarAstHelper.getLHSs(a)
         val rhss = PilarAstHelper.getRHSs(a)
@@ -278,14 +280,34 @@ class AndroidReachingFactsAnalysisBuilder(clm : ClassLoadManager){
 	      val fieldsFacts = getFieldsFacts(rhss, s, currentNode.getContext)
 	      result ++= fieldsFacts
 	      checkAndLoadClasses(lhss, rhss, a, s, currentNode)
-	      val values = ReachingFactsAnalysisHelper.processRHSs(rhss, s , currentNode.getContext) 
+	      val values = ReachingFactsAnalysisHelper.processRHSs(rhss, s , currentNode.getContext)  
 	      slots.foreach{
 	        case(i, (slot, _)) =>
 	          if(values.contains(i))
 	            result ++= values(i).map{v => RFAFact(slot, v)}
 	      }
+
+        if(ReachingFactsAnalysisHelper.isStaticFieldRead(a)){
+          val holeNodes = getPropertyOrElseUpdate(HOLE_NODES, Set():ISet[CGLocNode])
+          setProperty(HOLE_NODES, holeNodes+currentNode)
+          System.out.println("in Gen: holeNodes = " + getPropertyOrElse(HOLE_NODES, Set():ISet[CGLocNode]).toString())
+          val s1 = s ++ getPropertyOrElse(GLOBAL_FACTS, Set():ISet[RFAFact]) // here we add the global facts to s to make s1
+          val values = ReachingFactsAnalysisHelper.processRHSs(rhss, s1 , currentNode.getContext)  // note usage of s1
+          slots.foreach{
+            case(i, (slot, _)) =>
+              if(values.contains(i))
+                result ++= values(i).map{v => RFAFact(slot, v)}
+            }
+          System.out.println("in Gen: current generated facts = " + result) 
+        }      
+        if(ReachingFactsAnalysisHelper.isStaticFieldWrite(a)){
+          val globalFacts = getPropertyOrElseUpdate(GLOBAL_FACTS, Set():ISet[RFAFact])        
+          setProperty(GLOBAL_FACTS, globalFacts++result) // here result has only global facts, which were added in the 1st block above
+          System.out.println("in Gen: global facts = " + getPropertyOrElse(GLOBAL_FACTS, Set():ISet[RFAFact]).toString())  
+        }
       }
-      val exceptionFacts = getExceptionFacts(a, s, currentNode.getContext)
+      
+      val exceptionFacts = getExceptionFacts(a, s, currentNode.getContext)        
       result ++= exceptionFacts
       result
     }
@@ -304,32 +326,6 @@ class AndroidReachingFactsAnalysisBuilder(clm : ClassLoadManager){
       }
       result
     }
-  }
-
-  // the following MDF function can produce extra results e.g. global information such as static field facts; 
-  // we cannot produce these facts through Gen because these facts do not correspond to the nodes of icfg
-  class ExtraGen
-      extends InterProceduralMonotonicFunction[RFAFact] {
-        
-    def apply(s : ISet[RFAFact], a : Assignment, currentNode : CGLocNode) : ISet[RFAFact] = {
-      var result : ISet[RFAFact] = isetEmpty
-      if(ReachingFactsAnalysisHelper.isStaticFieldWrite(a)){
-        val lhss = PilarAstHelper.getLHSs(a)
-        val rhss = PilarAstHelper.getRHSs(a)
-        val slots = ReachingFactsAnalysisHelper.processLHSs(lhss, s, currentNode.getContext)    
-        val values = ReachingFactsAnalysisHelper.processRHSs(rhss, s , currentNode.getContext) 
-        slots.foreach{
-          case(i, (slot, _)) =>
-            if(values.contains(i))
-              result ++= values(i).map{v => RFAFact(slot, v)}
-        }        
-      }      
-      result
-    }
-
-    def apply(s : ISet[RFAFact], e : Exp, currentNode : CGLocNode) : ISet[RFAFact] = isetEmpty
-    
-    def apply(s : ISet[RFAFact], a : Action, currentNode : CGLocNode) : ISet[RFAFact] = isetEmpty
   }
   
   

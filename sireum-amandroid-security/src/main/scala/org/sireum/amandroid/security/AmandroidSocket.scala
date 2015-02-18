@@ -42,6 +42,7 @@ import org.sireum.jawa.alir.reachingFactsAnalysis.RFAFact
 import org.sireum.jawa.alir.controlFlowGraph.InterproceduralControlFlowGraph
 import org.sireum.util.IMap
 import org.sireum.jawa.JawaRecord
+import org.sireum.jawa.alir.interProcedural.ExtraInfo
 
 
 
@@ -215,57 +216,48 @@ class AmandroidSocket {
       if(myListener_opt.isDefined) 
         entryPoints = myListener_opt.get.entryPointFilter(entryPoints)
   
-      //initialize each component's sharable local facts (slfPool)       
-        var slfPool : IMap[JawaRecord, ISet[RFAFact]] = Map()
+      //initialize each component's sharable local facts (compPool) and the appPool      
+        var compPool : IMap[JawaRecord, ExtraInfo[RFAFact]] = Map()
         var icfgMap : IMap[JawaRecord, InterproceduralControlFlowGraph[CGNode]] = Map()
         var irfaResultMap : IMap[JawaRecord, AndroidReachingFactsAnalysisExtended.Result] = Map()
-        var aggGlobalFacts : ISet[RFAFact] = Set()
+        var appPool : ExtraInfo[RFAFact] = new ExtraInfo[RFAFact]
         
       entryPoints.map { 
-        ep =>                
-              slfPool += (ep.getDeclaringRecord -> AndroidRFAConfig.getInitialGlobalFacts(ep.getDeclaringRecord))              
+        ep => msg_critical(TITLE, "--------------first computation Component " + ep + "--------------")                                                
               val initialfacts = AndroidRFAConfig.getInitialFactsForMainEnvironment(ep)
               val (icfg, irfaResult) = AndroidReachingFactsAnalysisExtended(ep, null, null, initialfacts, new ClassLoadManager)
               icfgMap +=(ep.getDeclaringRecord -> icfg)
               irfaResultMap += (ep.getDeclaringRecord -> irfaResult)              
-              slfPool +=(ep.getDeclaringRecord -> irfaResult.getExtraFacts())              
+              compPool +=(ep.getDeclaringRecord -> irfaResult.getExtraInfo)
+          
        }
-            
+      
       //inter-component merging starts
       var converged = false      
       while(converged != true){
         converged = true
         entryPoints.map {
-          ep => aggGlobalFacts ++= slfPool(ep.getDeclaringRecord)
+          ep => appPool.mergeWithOther(compPool(ep.getDeclaringRecord))
         }
-        
-        System.out.println(" aggGlobalFacts extra facts  = " + aggGlobalFacts.toString)
-        
+                
         {if(parallel) entryPoints.par else entryPoints}.foreach{
           ep =>
             try{
-              msg_critical(TITLE, "--------------Component " + ep + "--------------")              
-              slfPool += (ep.getDeclaringRecord -> aggGlobalFacts)
+              msg_critical(TITLE, "in convergance algo --------------Component " + ep + "--------------")              
+              compPool += (ep.getDeclaringRecord -> compPool(ep.getDeclaringRecord).mergeWithOther(appPool))
               
               val initialfacts = AndroidRFAConfig.getInitialFactsForMainEnvironment(ep)
               val preIcfg = icfgMap(ep.getDeclaringRecord)
-              var preIrfaResult = irfaResultMap(ep.getDeclaringRecord)              
-              preIrfaResult.setExtrafacts(aggGlobalFacts)
-              
+              val preIrfaResult = irfaResultMap(ep.getDeclaringRecord)              
+             
               val (icfg, irfaResult) = AndroidReachingFactsAnalysisExtended(ep, preIcfg, preIrfaResult, initialfacts, new ClassLoadManager)              
               icfgMap +=(ep.getDeclaringRecord -> icfg)
               irfaResultMap += (ep.getDeclaringRecord -> irfaResult)
-              if(!irfaResult.getExtraFacts().diff(preIrfaResult.getExtraFacts()).isEmpty) {
+              if(!irfaResult.getExtraInfo.diffFacts(preIrfaResult.getExtraInfo).isEmpty) {
                 converged = false
-              }
-              
-//     
-//              System.out.println("icfg and irfaRes done. " + " holeNodes num = " + irfaResult.getHoleNodes().size)
-//              System.out.println(" irfaRes extra facts size = " + irfaResult.getExtraFacts().toString)
-//              val (icfg2, irfaResult2) = AndroidReachingFactsAnalysisExtended(ep, icfg, null, initialfacts, new ClassLoadManager)
-//        
-              System.out.println("icfg and irfaRes done. " + " holeNodes num = " + irfaResult.getHoleNodes().size)
-              System.out.println(" irfaRes extra facts = " + irfaResult.getExtraFacts().toString)
+              }              
+              System.out.println("icfg and irfaRes done. " + " holeNodes num = " + irfaResult.getExtraInfo.getHoleNodes().size)
+              System.out.println(" irfaRes extra facts = " + irfaResult.getExtraInfo.getExtraFacts().toString)
 //           
 //              val outputDir = AndroidGlobalConfig.amandroid_home + "/output"            
 //              val dotDirFile = new File(outputDir + "/" + "toDot")

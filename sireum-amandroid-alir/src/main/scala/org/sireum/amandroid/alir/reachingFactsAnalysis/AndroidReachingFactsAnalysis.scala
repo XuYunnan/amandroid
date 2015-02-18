@@ -271,8 +271,7 @@ class AndroidReachingFactsAnalysisBuilder(clm : ClassLoadManager){
     def apply(s : ISet[RFAFact], a : Assignment, currentNode : CGLocNode) : ISet[RFAFact] = {
       var result : ISet[RFAFact] = isetEmpty
       val HOLE_NODES = "holeNodes"
-      val GLOBAL_FACTS = "globalFacts"
-            
+      val GLOBAL_FACTS = "globalFacts"            
       if(isInterestingAssignment(a)){
         val lhss = PilarAstHelper.getLHSs(a)
         val rhss = PilarAstHelper.getRHSs(a)

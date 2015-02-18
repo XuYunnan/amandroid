@@ -23,4 +23,5 @@ object AndroidReachingFactsAnalysisConfig {
 	 */
 	final var timeout = 0
 	final var parallel : Boolean = false
+  
 }

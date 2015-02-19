@@ -12,13 +12,20 @@ import org.sireum.jawa.JawaProcedure
 import org.sireum.amandroid.alir.model.AndroidModelCallHandler
 import org.sireum.jawa.alir.reachingFactsAnalysis.RFAFact
 import org.sireum.jawa.alir.Context
+import org.sireum.jawa.alir.interProcedural.ExtraInfo
+import org.sireum.jawa.JawaRecord
+import org.sireum.jawa.alir.controlFlowGraph.InterproceduralControlFlowGraph
+import org.sireum.jawa.alir.controlFlowGraph.CGNode
+import org.sireum.jawa.MessageCenter._
+import org.sireum.jawa.ClassLoadManager
+import org.sireum.jawa.util.TimeOutException
 
 /**
  * @author <a href="mailto:fgwei@k-state.edu">Fengguo Wei</a>
  * @author <a href="mailto:sroy@k-state.edu">Sankardas Roy</a>
  */ 
 object AndroidReachingFactsAnalysisHelper {
-	
+	private final val TITLE = "AndroidReachingFactsAnalysisHelper"
 	def isModelCall(calleeProc : JawaProcedure) : Boolean = {
     AndroidModelCallHandler.isModelCall(calleeProc)
   }
@@ -33,5 +40,88 @@ object AndroidReachingFactsAnalysisHelper {
   
   def doICCCall(s : ISet[RFAFact], calleeProc : JawaProcedure, args : List[String], retVars : Seq[String], currentContext : Context) : (ISet[RFAFact], ISet[JawaProcedure]) = {
     AndroidModelCallHandler.doICCCall(s, calleeProc, args, retVars, currentContext)
+  }
+  
+  def doIrfaMerge(entryPoints:Set[JawaProcedure], parallel: Boolean) ={
+    
+          //initialize each component's sharable local facts (compPool) and the appPool      
+        
+        var icfgMap : IMap[JawaProcedure, InterproceduralControlFlowGraph[CGNode]] = Map()
+        var irfaResultMap : IMap[JawaProcedure, AndroidReachingFactsAnalysisExtended.Result] = Map()
+        
+        
+      entryPoints.map { 
+        ep => msg_critical(TITLE, "--------------Component " + ep + "--------------")                                                
+              val initialfacts = AndroidRFAConfig.getInitialFactsForMainEnvironment(ep)
+              val (icfg, irfaResult) = AndroidReachingFactsAnalysisExtended(ep, null, null, initialfacts, new ClassLoadManager)
+              icfgMap +=(ep -> icfg)
+              irfaResultMap += (ep -> irfaResult)              
+              
+          
+       }
+    
+      //inter-component merging starts
+      var converged = false
+      var appPool : ExtraInfo[RFAFact] = new ExtraInfo[RFAFact]
+      var compPool : IMap[JawaProcedure, ExtraInfo[RFAFact]] = Map()
+      while(converged != true){
+        converged = true
+        entryPoints.map {
+          ep =>
+            compPool +=(ep -> irfaResultMap(ep).getExtraInfo)
+            appPool.mergeWithOther(compPool(ep))
+        }
+                
+        {if(parallel) entryPoints.par else entryPoints}.foreach{
+          ep =>
+            try{
+              msg_critical(TITLE, "--------------Component " + ep + "--------------")              
+              compPool += (ep -> compPool(ep).mergeWithOther(appPool))
+              
+              val initialfacts = AndroidRFAConfig.getInitialFactsForMainEnvironment(ep)
+              val preIcfg = icfgMap(ep)
+              val preIrfaResult = irfaResultMap(ep)              
+             
+              val (icfg, irfaResult) = AndroidReachingFactsAnalysisExtended(ep, preIcfg, preIrfaResult, initialfacts, new ClassLoadManager)              
+              icfgMap +=(ep -> icfg)
+              irfaResultMap += (ep -> irfaResult)
+              if(!irfaResult.getExtraInfo.diffFacts(preIrfaResult.getExtraInfo).isEmpty) {
+                converged = false
+              }              
+              System.out.println("icfg and irfaRes done. " + " holeNodes num = " + irfaResult.getExtraInfo.getHoleNodes().size)
+              System.out.println(" irfaRes extra facts = " + irfaResult.getExtraInfo.getExtraFacts().toString)
+//           
+//              val outputDir = AndroidGlobalConfig.amandroid_home + "/output"            
+//              val dotDirFile = new File(outputDir + "/" + "toDot")
+//              if(!dotDirFile.exists()) dotDirFile.mkdirs()           
+//              val out = new PrintWriter(dotDirFile.getAbsolutePath + "/"+ ep.getShortName +"icfg.dot")
+//              icfg.toDot(out)
+//              out.close()
+//            
+//              val out2 = new PrintWriter(dotDirFile.getAbsolutePath + "/" + ep.getShortName +"icfg2.dot")
+//              icfg2.toDot(out2)
+//              out2.close()
+//            
+//              val irfaResDirFile = new File(outputDir + "/" + "irfaResult")
+//              if(!irfaResDirFile.exists()) irfaResDirFile.mkdirs()
+//              val irfaOut = new PrintWriter(irfaResDirFile.getAbsolutePath + "/"+ ep.getShortName + "irfaRes.txt")
+//              irfaOut.print(irfaResult.toString())
+//              irfaOut.close()
+//            
+//              val irfaOut2 = new PrintWriter(irfaResDirFile.getAbsolutePath + "/"+ ep.getShortName + "irfaRes2.txt")
+//              irfaOut2.print(irfaResult2.toString())
+//              irfaOut2.close()
+//            
+//              msg_critical(TITLE,"--------------------------icfg and irfaResult are stored in file --------------")
+//            
+//            
+//              AppCenter.addInterproceduralReachingFactsAnalysisResult(ep.getDeclaringRecord, icfg, irfaResult)
+//              msg_critical(TITLE, "processed-->" + icfg.getProcessed.size)
+//              val iddResult = InterproceduralDataDependenceAnalysis(icfg, irfaResult)
+//              AppCenter.addInterproceduralDataDependenceAnalysisResult(ep.getDeclaringRecord, iddResult)
+            } 
+        }   
+          
+      }
   }
 }

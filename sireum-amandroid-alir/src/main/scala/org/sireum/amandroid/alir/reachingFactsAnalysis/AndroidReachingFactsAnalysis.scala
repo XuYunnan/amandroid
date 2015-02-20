@@ -289,7 +289,7 @@ class AndroidReachingFactsAnalysisBuilder(clm : ClassLoadManager){
         if(ReachingFactsAnalysisHelper.isStaticFieldRead(a)){
           val holeNodes = getPropertyOrElseUpdate(HOLE_NODES, Set():ISet[CGLocNode])
           setProperty(HOLE_NODES, holeNodes+currentNode)
-          System.out.println("in Gen: holeNodes = " + getPropertyOrElse(HOLE_NODES, Set():ISet[CGLocNode]).toString())
+          
           val s1 = s ++ getPropertyOrElse(GLOBAL_FACTS, Set():ISet[RFAFact]) // here we add the global facts to s to make s1
           val values = ReachingFactsAnalysisHelper.processRHSs(rhss, s1 , currentNode.getContext)  // note usage of s1
           slots.foreach{
@@ -297,7 +297,7 @@ class AndroidReachingFactsAnalysisBuilder(clm : ClassLoadManager){
               if(values.contains(i))
                 result ++= values(i).map{v => RFAFact(slot, v)}
             }
-          System.out.println("in Gen: current generated facts = " + result) 
+          
         }      
         if(ReachingFactsAnalysisHelper.isStaticFieldWrite(a)){
           val globalFacts = getPropertyOrElseUpdate(GLOBAL_FACTS, Set():ISet[RFAFact])        

@@ -44,39 +44,35 @@ object AndroidReachingFactsAnalysisHelper {
   
   def doIrfaMerge(entryPoints:Set[JawaProcedure], parallel: Boolean) ={
     
-          //initialize each component's sharable local facts (compPool) and the appPool      
-        
-        var icfgMap : IMap[JawaProcedure, InterproceduralControlFlowGraph[CGNode]] = Map()
-        var irfaResultMap : IMap[JawaProcedure, AndroidReachingFactsAnalysisExtended.Result] = Map()
-        
-        
-      entryPoints.map { 
-        ep => msg_critical(TITLE, "--------------Component " + ep + "--------------")                                                
-              val initialfacts = AndroidRFAConfig.getInitialFactsForMainEnvironment(ep)
-              val (icfg, irfaResult) = AndroidReachingFactsAnalysisExtended(ep, null, null, initialfacts, new ClassLoadManager)
-              icfgMap +=(ep -> icfg)
-              irfaResultMap += (ep -> irfaResult)              
-              
-          
-       }
-    
-      //inter-component merging starts
-      var converged = false
-      var appPool : ExtraInfo[RFAFact] = new ExtraInfo[RFAFact]
-      var compPool : IMap[JawaProcedure, ExtraInfo[RFAFact]] = Map()
-      while(converged != true){
-        converged = true
-        entryPoints.map {
-          ep =>
-            compPool +=(ep -> irfaResultMap(ep).getExtraInfo)
-            appPool.mergeWithOther(compPool(ep))
-        }
+    //initialize each component's sharable local facts (compPool) and the appPool           
+    var icfgMap : IMap[JawaProcedure, InterproceduralControlFlowGraph[CGNode]] = Map()
+    var irfaResultMap : IMap[JawaProcedure, AndroidReachingFactsAnalysisExtended.Result] = Map()
+     
+    entryPoints.map { 
+      ep => 
+        msg_critical(TITLE, "--------------Component " + ep + "--------------")                                                
+        val initialfacts = AndroidRFAConfig.getInitialFactsForMainEnvironment(ep)
+        val (icfg, irfaResult) = AndroidReachingFactsAnalysisExtended(ep, null, null, initialfacts, new ClassLoadManager)
+        icfgMap +=(ep -> icfg)
+        irfaResultMap += (ep -> irfaResult)                    
+     }    
+    //inter-component merging starts
+    var converged = false
+    var appPool : ExtraInfo[RFAFact] = new ExtraInfo[RFAFact]
+    var compPool : IMap[JawaProcedure, ExtraInfo[RFAFact]] = Map()
+    while(converged != true){
+      converged = true
+      entryPoints.map {
+        ep =>
+          compPool +=(ep -> irfaResultMap(ep).getExtraInfo)
+          appPool.merge(compPool(ep))
+      }
                 
         {if(parallel) entryPoints.par else entryPoints}.foreach{
           ep =>
-            try{
+
               msg_critical(TITLE, "--------------Component " + ep + "--------------")              
-              compPool += (ep -> compPool(ep).mergeWithOther(appPool))
+              compPool += (ep -> compPool(ep).merge(appPool))
               
               val initialfacts = AndroidRFAConfig.getInitialFactsForMainEnvironment(ep)
               val preIcfg = icfgMap(ep)
@@ -123,5 +119,5 @@ object AndroidReachingFactsAnalysisHelper {
         }   
           
       }
-  }
+  
 }

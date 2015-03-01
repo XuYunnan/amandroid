@@ -41,6 +41,7 @@ import java.io.PrintWriter
 import org.sireum.jawa.alir.interProcedural.InterProceduralMonotoneDataFlowAnalysisFrameworkExtended
 import org.sireum.jawa.alir.interProcedural.InterProceduralMonotoneDataFlowAnalysisFramework
 import org.sireum.jawa.alir.interProcedural.InterProceduralMonotoneDataFlowAnalysisResultExtended
+import org.sireum.amandroid.alir.AmandroidAlirConstants
 
 /**
  * @author <a href="mailto:fgwei@k-state.edu">Fengguo Wei</a>
@@ -270,8 +271,7 @@ class AndroidReachingFactsAnalysisBuilder(clm : ClassLoadManager){
     
     def apply(s : ISet[RFAFact], a : Assignment, currentNode : CGLocNode) : ISet[RFAFact] = {
       var result : ISet[RFAFact] = isetEmpty
-      val HOLE_NODES = "holeNodes"
-      val GLOBAL_FACTS = "globalFacts"            
+                
       if(isInterestingAssignment(a)){
         val lhss = PilarAstHelper.getLHSs(a)
         val rhss = PilarAstHelper.getRHSs(a)
@@ -287,10 +287,10 @@ class AndroidReachingFactsAnalysisBuilder(clm : ClassLoadManager){
 	      }
 
         if(ReachingFactsAnalysisHelper.isStaticFieldRead(a)){
-          val holeNodes = getPropertyOrElseUpdate(HOLE_NODES, Set():ISet[CGLocNode])
-          setProperty(HOLE_NODES, holeNodes+currentNode)
+          val holeNodes = getPropertyOrElseUpdate(AmandroidAlirConstants.HOLE_NODES, Set():ISet[CGLocNode])
+          setProperty(AmandroidAlirConstants.HOLE_NODES, holeNodes+currentNode)
           
-          val s1 = s ++ getPropertyOrElse(GLOBAL_FACTS, Set():ISet[RFAFact]) // here we add the global facts to s to make s1
+          val s1 = s ++ getPropertyOrElse(AmandroidAlirConstants.GLOBAL_FACTS, Set():ISet[RFAFact]) // here we add the global facts to s to make s1
           val values = ReachingFactsAnalysisHelper.processRHSs(rhss, s1 , currentNode.getContext)  // note usage of s1
           slots.foreach{
             case(i, (slot, _)) =>
@@ -300,9 +300,9 @@ class AndroidReachingFactsAnalysisBuilder(clm : ClassLoadManager){
           
         }      
         if(ReachingFactsAnalysisHelper.isStaticFieldWrite(a)){
-          val globalFacts = getPropertyOrElseUpdate(GLOBAL_FACTS, Set():ISet[RFAFact])        
-          setProperty(GLOBAL_FACTS, globalFacts++result) // here result has only global facts, which were added in the 1st block above
-          System.out.println("in Gen: global facts = " + getPropertyOrElse(GLOBAL_FACTS, Set():ISet[RFAFact]).toString())  
+          val globalFacts = getPropertyOrElseUpdate(AmandroidAlirConstants.GLOBAL_FACTS, Set():ISet[RFAFact])        
+          setProperty(AmandroidAlirConstants.GLOBAL_FACTS, globalFacts++result) // here result has only global facts, which were added in the 1st block above
+          System.out.println("in Gen: global facts = " + getPropertyOrElse(AmandroidAlirConstants.GLOBAL_FACTS, Set():ISet[RFAFact]).toString())  
         }
       }
       
@@ -399,8 +399,16 @@ class AndroidReachingFactsAnalysisBuilder(clm : ClassLoadManager){
 										  cg.extendGraphOneWay(target.getSignature, callerContext, AndroidReachingFactsAnalysis.ICC_EDGE)
 				            }
 	                  msg_normal(TITLE, target.getDeclaringRecord + " started!")
-	                  calleeFactsMap += (cg.entryNode(target.getSignature, callerContext) -> mapFactsToICCTarget(factsForCallee, cj, target.getProcedureBody.procedure))
+	                  calleeFactsMap += (cg.entryNode(target.getSignature, callerContext) -> mapFactsToICCTarget(factsForCallee, cj, target.getProcedureBody.procedure))                    
 	              }
+              }
+              else { // this else block is for icc call processing in component merge mode
+                val factsForCallee = getFactsForICCTarget(s, cj, calleep)
+                val (retFacts, targets) = AndroidReachingFactsAnalysisHelper.doICCCall(factsForCallee, calleep, args, cj.lhss.map(lhs=>lhs.name.name), callerContext)
+                targets.foreach{
+                  target => 
+                    System.out.println("target = " + target + " mapped facts= " + mapFactsToICCTarget(factsForCallee, cj, target.getProcedureBody.procedure))
+                }
               }
             } else { // for non-ICC model call
 //              if(callee.getSubSignature == "unknown:()LCenter/Unknown;") println("callees-->" + calleeSet + "\ncontext-->" + callerContext + "\nfacts-->" + s)

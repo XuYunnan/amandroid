@@ -81,10 +81,10 @@ object AndroidReachingFactsAnalysisHelper {
               val (icfg, irfaResult) = AndroidReachingFactsAnalysisExtended(ep, preIcfg, preIrfaResult, initialfacts, new ClassLoadManager)              
               icfgMap +=(ep -> icfg)
               irfaResultMap += (ep -> irfaResult)
-              if(!irfaResult.getExtraInfo.diffFacts(preIrfaResult.getExtraInfo).isEmpty) {
+              if(!irfaResult.getExtraInfo.diffExtraFacts(preIrfaResult.getExtraInfo).isEmpty) {
                 converged = false
               }              
-              System.out.println("icfg and irfaRes done. " + " holeNodes num = " + irfaResult.getExtraInfo.getHoleNodes().size)
+              System.out.println("icfg and irfaRes computed. " + " holeNodes num = " + irfaResult.getExtraInfo.getHoleNodes().size)
               System.out.println(" irfaRes extra facts = " + irfaResult.getExtraInfo.getExtraFacts().toString)
 //           
 //              val outputDir = AndroidGlobalConfig.amandroid_home + "/output"            

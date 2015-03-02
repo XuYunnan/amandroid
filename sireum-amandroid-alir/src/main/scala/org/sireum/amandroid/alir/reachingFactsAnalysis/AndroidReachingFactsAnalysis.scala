@@ -94,10 +94,13 @@ class AndroidReachingFactsAnalysisBuilder(clm : ClassLoadManager){
     this.icfg = cg
     if(existingCg==null)
       cg.collectCfgToBaseGraph(entryPointProc, initContext, true)
-    val iota : ISet[RFAFact] = initialFacts + RFAFact(VarSlot("@@RFAiota"), NullInstance(initContext))
-    System.out.println("initial facts = " + initial)
-    val result = InterProceduralMonotoneDataFlowAnalysisFrameworkExtended[RFAFact](cg, existingIrfaResult,
+    val iotaFact = RFAFact(VarSlot("@@RFAiota"), NullInstance(initContext))  
+    val iota : ISet[RFAFact] = initialFacts + iotaFact
+    var result = InterProceduralMonotoneDataFlowAnalysisFrameworkExtended[RFAFact](cg, existingIrfaResult,
       true, true, false, AndroidReachingFactsAnalysisConfig.parallel, gen, kill, callr, iota, initial, switchAsOrderedMatch, Some(nl))
+    result.getEntrySetMap().foreach {
+      case (x, y) => result.getEntrySetMap(x) = y - iotaFact
+    }
     (cg, result)
   }
   
@@ -272,8 +275,6 @@ class AndroidReachingFactsAnalysisBuilder(clm : ClassLoadManager){
     
     def apply(s : ISet[RFAFact], a : Assignment, currentNode : CGLocNode) : ISet[RFAFact] = {
       var result : ISet[RFAFact] = isetEmpty
-      if(currentNode.getLocUri.contains("L068992"))
-        System.out.println("L068992 ; s = " + s)
       if(isInterestingAssignment(a)){
         val lhss = PilarAstHelper.getLHSs(a)
         val rhss = PilarAstHelper.getRHSs(a)
@@ -407,8 +408,7 @@ class AndroidReachingFactsAnalysisBuilder(clm : ClassLoadManager){
                 val factsForCallee = getFactsForICCTarget(s, cj, calleep)
                 val (retFacts, targets) = AndroidReachingFactsAnalysisHelper.doICCCall(factsForCallee, calleep, args, cj.lhss.map(lhs=>lhs.name.name), callerContext)
                 targets.foreach{
-                  target => 
-                    System.out.println("target = " + target + " mapped facts= " + mapFactsToICCTarget(factsForCallee, cj, target.getProcedureBody.procedure))
+                  target =>                     
                     var sentIntentFactsMapped = getPropertyOrElseUpdate(AmandroidAlirConstants.SENT_INTENT_FACTS, Map():IMap[JawaProcedure, ISet[RFAFact]])
                     val newFacts = mapFactsToICCTarget(factsForCallee, cj, target.getProcedureBody.procedure)
                     sentIntentFactsMapped +=(target -> sentIntentFactsMapped.getOrElse(target, Set():ISet[RFAFact]).union(newFacts))

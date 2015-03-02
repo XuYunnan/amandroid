@@ -95,6 +95,7 @@ class AndroidReachingFactsAnalysisBuilder(clm : ClassLoadManager){
     if(existingCg==null)
       cg.collectCfgToBaseGraph(entryPointProc, initContext, true)
     val iota : ISet[RFAFact] = initialFacts + RFAFact(VarSlot("@@RFAiota"), NullInstance(initContext))
+    System.out.println("initial facts = " + initial)
     val result = InterProceduralMonotoneDataFlowAnalysisFrameworkExtended[RFAFact](cg, existingIrfaResult,
       true, true, false, AndroidReachingFactsAnalysisConfig.parallel, gen, kill, callr, iota, initial, switchAsOrderedMatch, Some(nl))
     (cg, result)
@@ -271,7 +272,8 @@ class AndroidReachingFactsAnalysisBuilder(clm : ClassLoadManager){
     
     def apply(s : ISet[RFAFact], a : Assignment, currentNode : CGLocNode) : ISet[RFAFact] = {
       var result : ISet[RFAFact] = isetEmpty
-                
+      if(currentNode.getLocUri.contains("L068992"))
+        System.out.println("L068992 ; s = " + s)
       if(isInterestingAssignment(a)){
         val lhss = PilarAstHelper.getLHSs(a)
         val rhss = PilarAstHelper.getRHSs(a)
@@ -302,8 +304,7 @@ class AndroidReachingFactsAnalysisBuilder(clm : ClassLoadManager){
         if(ReachingFactsAnalysisHelper.isStaticFieldWrite(a)){
           val globalFacts = getPropertyOrElseUpdate(AmandroidAlirConstants.GLOBAL_FACTS, Set():ISet[RFAFact])        
           setProperty(AmandroidAlirConstants.GLOBAL_FACTS, globalFacts++result) // here result has only global facts, which were added in the 1st block above
-          System.out.println("in Gen: global facts = " + getPropertyOrElse(AmandroidAlirConstants.GLOBAL_FACTS, Set():ISet[RFAFact]).toString())  
-        }
+          }
       }
       
       val exceptionFacts = getExceptionFacts(a, s, currentNode.getContext)        
@@ -408,6 +409,10 @@ class AndroidReachingFactsAnalysisBuilder(clm : ClassLoadManager){
                 targets.foreach{
                   target => 
                     System.out.println("target = " + target + " mapped facts= " + mapFactsToICCTarget(factsForCallee, cj, target.getProcedureBody.procedure))
+                    var sentIntentFactsMapped = getPropertyOrElseUpdate(AmandroidAlirConstants.SENT_INTENT_FACTS, Map():IMap[JawaProcedure, ISet[RFAFact]])
+                    val newFacts = mapFactsToICCTarget(factsForCallee, cj, target.getProcedureBody.procedure)
+                    sentIntentFactsMapped +=(target -> sentIntentFactsMapped.getOrElse(target, Set():ISet[RFAFact]).union(newFacts))
+                    setProperty(AmandroidAlirConstants.SENT_INTENT_FACTS, sentIntentFactsMapped)
                 }
               }
             } else { // for non-ICC model call

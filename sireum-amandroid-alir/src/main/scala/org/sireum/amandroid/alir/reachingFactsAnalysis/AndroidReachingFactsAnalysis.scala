@@ -404,12 +404,12 @@ class AndroidReachingFactsAnalysisBuilder(clm : ClassLoadManager){
 	                  calleeFactsMap += (cg.entryNode(target.getSignature, callerContext) -> mapFactsToICCTarget(factsForCallee, cj, target.getProcedureBody.procedure))                    
 	              }
               }
-              else { // this else block is for icc call processing in component merge mode
+              else { // this else block is for processing icc calls in "component merge" mode
                 val factsForCallee = getFactsForICCTarget(s, cj, calleep)
                 val (retFacts, targets) = AndroidReachingFactsAnalysisHelper.doICCCall(factsForCallee, calleep, args, cj.lhss.map(lhs=>lhs.name.name), callerContext)
                 targets.foreach{
                   target =>                     
-                    var sentIntentFactsMapped = getPropertyOrElseUpdate(AmandroidAlirConstants.SENT_INTENT_FACTS, Map():IMap[JawaProcedure, ISet[RFAFact]])
+                    var sentIntentFactsMapped = getPropertyOrElse(AmandroidAlirConstants.SENT_INTENT_FACTS, Map():IMap[JawaProcedure, ISet[RFAFact]])
                     val newFacts = mapFactsToICCTarget(factsForCallee, cj, target.getProcedureBody.procedure)
                     sentIntentFactsMapped +=(target -> sentIntentFactsMapped.getOrElse(target, Set():ISet[RFAFact]).union(newFacts))
                     setProperty(AmandroidAlirConstants.SENT_INTENT_FACTS, sentIntentFactsMapped)

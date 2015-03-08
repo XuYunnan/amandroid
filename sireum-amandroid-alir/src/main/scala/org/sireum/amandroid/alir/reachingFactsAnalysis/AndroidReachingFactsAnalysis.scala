@@ -91,7 +91,7 @@ class AndroidReachingFactsAnalysisBuilder(clm : ClassLoadManager){
     val initial : ISet[RFAFact] = isetEmpty
     val cg = if(existingCg==null) new InterproceduralControlFlowGraph[CGNode] else existingCg
     this.icfg = cg
-    val initContext = new Context(GlobalConfig.CG_CONTEXT_K, entryPointProc.getName)
+    val initContext = new Context(GlobalConfig.CG_CONTEXT_K).setComponentName(entryPointProc.getName)
     if(existingCg==null)
       cg.collectCfgToBaseGraph(entryPointProc, initContext.copy, true)
     val iotaFact = RFAFact(VarSlot("@@RFAiota"), NullInstance(initContext.copy))  

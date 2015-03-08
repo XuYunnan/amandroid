@@ -19,7 +19,11 @@ import org.sireum.jawa.alir.controlFlowGraph.CGNode
 import org.sireum.jawa.MessageCenter._
 import org.sireum.jawa.ClassLoadManager
 import org.sireum.jawa.util.TimeOutException
-
+import org.sireum.amandroid.AndroidGlobalConfig
+import java.io.File
+import java.io.PrintWriter
+import org.sireum.amandroid.AppCenter
+import org.sireum.jawa.alir.dataDependenceAnalysis.InterproceduralDataDependenceAnalysis
 /**
  * @author <a href="mailto:fgwei@k-state.edu">Fengguo Wei</a>
  * @author <a href="mailto:sroy@k-state.edu">Sankardas Roy</a>
@@ -88,35 +92,28 @@ object AndroidReachingFactsAnalysisHelper {
               System.out.println("icfg and irfaRes computed. " + " holeNodes num = " + irfaResult.getExtraInfo.getHoleNodes().size)
               System.out.println(" irfaRes extra facts = " + irfaResult.getExtraInfo.getStaticFacts().toString)
               System.out.println(" irfaRes sent intent facts = " + irfaResult.getExtraInfo.getIntentFacts.toString)
-//           
-//              val outputDir = AndroidGlobalConfig.amandroid_home + "/output"            
-//              val dotDirFile = new File(outputDir + "/" + "toDot")
-//              if(!dotDirFile.exists()) dotDirFile.mkdirs()           
-//              val out = new PrintWriter(dotDirFile.getAbsolutePath + "/"+ ep.getShortName +"icfg.dot")
-//              icfg.toDot(out)
-//              out.close()
-//            
-//              val out2 = new PrintWriter(dotDirFile.getAbsolutePath + "/" + ep.getShortName +"icfg2.dot")
-//              icfg2.toDot(out2)
-//              out2.close()
-//            
-//              val irfaResDirFile = new File(outputDir + "/" + "irfaResult")
-//              if(!irfaResDirFile.exists()) irfaResDirFile.mkdirs()
-//              val irfaOut = new PrintWriter(irfaResDirFile.getAbsolutePath + "/"+ ep.getShortName + "irfaRes.txt")
-//              irfaOut.print(irfaResult.toString())
-//              irfaOut.close()
-//            
-//              val irfaOut2 = new PrintWriter(irfaResDirFile.getAbsolutePath + "/"+ ep.getShortName + "irfaRes2.txt")
-//              irfaOut2.print(irfaResult2.toString())
-//              irfaOut2.close()
-//            
-//              msg_critical(TITLE,"--------------------------icfg and irfaResult are stored in file --------------")
-//            
-//            
-//              AppCenter.addInterproceduralReachingFactsAnalysisResult(ep.getDeclaringRecord, icfg, irfaResult)
-//              msg_critical(TITLE, "processed-->" + icfg.getProcessed.size)
-//              val iddResult = InterproceduralDataDependenceAnalysis(icfg, irfaResult)
-//              AppCenter.addInterproceduralDataDependenceAnalysisResult(ep.getDeclaringRecord, iddResult)
+        }
+        
+        {if(parallel) entryPoints.par else entryPoints}.foreach{
+          ep =>              
+              val outputDir = AndroidGlobalConfig.amandroid_home + "/output"            
+              val dotDirFile = new File(outputDir + "/" + "toDot")
+              if(!dotDirFile.exists()) dotDirFile.mkdirs()           
+              val out = new PrintWriter(dotDirFile.getAbsolutePath + "/"+ ep.getName +"icfg.dot")
+              icfgMap(ep).toDot(out)
+              out.close()
+         
+              val irfaResDirFile = new File(outputDir + "/" + "irfaResult")
+              if(!irfaResDirFile.exists()) irfaResDirFile.mkdirs()
+              val irfaOut = new PrintWriter(irfaResDirFile.getAbsolutePath + "/"+ ep.getName + "irfaRes.txt")
+              irfaOut.print(irfaResultMap(ep).toString())
+              irfaOut.close()
+          
+              msg_critical(TITLE,"--------------------------icfg and irfaResult are stored in file --------------")
+              AppCenter.addInterproceduralReachingFactsAnalysisResult(ep.getDeclaringRecord, icfgMap(ep), irfaResultMap(ep))
+              msg_critical(TITLE, "processed-->" + icfgMap(ep).getProcessed.size)
+              //val iddResult = InterproceduralDataDependenceAnalysis(icfgMap(ep), irfaResultMap(ep))
+              //AppCenter.addInterproceduralDataDependenceAnalysisResult(ep.getDeclaringRecord, iddResult) 
             } 
         }   
           

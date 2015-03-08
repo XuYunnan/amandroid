@@ -83,7 +83,6 @@ class AndroidReachingFactsAnalysisBuilder(clm : ClassLoadManager){
       existingCg : InterproceduralControlFlowGraph[CGNode],
       existingIrfaResult : InterProceduralMonotoneDataFlowAnalysisResultExtended[RFAFact],
    initialFacts : ISet[RFAFact] = isetEmpty,
-   initContext : Context,
    switchAsOrderedMatch : Boolean) : (InterproceduralControlFlowGraph[CGNode], AndroidReachingFactsAnalysisExtended.Result) = {
     val gen = new Gen
     val kill = new Kill
@@ -92,9 +91,10 @@ class AndroidReachingFactsAnalysisBuilder(clm : ClassLoadManager){
     val initial : ISet[RFAFact] = isetEmpty
     val cg = if(existingCg==null) new InterproceduralControlFlowGraph[CGNode] else existingCg
     this.icfg = cg
+    val initContext = new Context(GlobalConfig.CG_CONTEXT_K, entryPointProc.getName)
     if(existingCg==null)
-      cg.collectCfgToBaseGraph(entryPointProc, initContext, true)
-    val iotaFact = RFAFact(VarSlot("@@RFAiota"), NullInstance(initContext))  
+      cg.collectCfgToBaseGraph(entryPointProc, initContext.copy, true)
+    val iotaFact = RFAFact(VarSlot("@@RFAiota"), NullInstance(initContext.copy))  
     val iota : ISet[RFAFact] = initialFacts + iotaFact
     var result = InterProceduralMonotoneDataFlowAnalysisFrameworkExtended[RFAFact](cg, existingIrfaResult,
       true, true, false, AndroidReachingFactsAnalysisConfig.parallel, gen, kill, callr, iota, initial, switchAsOrderedMatch, Some(nl))
@@ -743,7 +743,6 @@ object AndroidReachingFactsAnalysisExtended {
       existingIrfaResult : InterProceduralMonotoneDataFlowAnalysisResultExtended[RFAFact],
    initialFacts : ISet[RFAFact] = isetEmpty,
    clm : ClassLoadManager,
-   initContext : Context = new Context(GlobalConfig.CG_CONTEXT_K),
    switchAsOrderedMatch : Boolean = false) : (InterproceduralControlFlowGraph[Node], Result)
-           = new AndroidReachingFactsAnalysisBuilder(clm).buildGeneral(entryPointProc, existingCg, existingIrfaResult,initialFacts, initContext, switchAsOrderedMatch)
+           = new AndroidReachingFactsAnalysisBuilder(clm).buildGeneral(entryPointProc, existingCg, existingIrfaResult,initialFacts, switchAsOrderedMatch)
 }

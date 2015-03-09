@@ -99,7 +99,13 @@ class AndroidReachingFactsAnalysisBuilder(clm : ClassLoadManager){
     var result = InterProceduralMonotoneDataFlowAnalysisFrameworkExtended[RFAFact](cg, existingIrfaResult,
       true, true, false, AndroidReachingFactsAnalysisConfig.parallel, gen, kill, callr, iota, initial, switchAsOrderedMatch, Some(nl))
     result.getEntrySetMap().foreach {
-      case (x, y) => result.getEntrySetMap(x) = y - iotaFact
+      case (x, y) => {
+        if(y.contains(iotaFact)){
+          result.getEntrySetMap.update(x, y - iotaFact)
+          if(result.getEntrySetMap().apply(x).contains(iotaFact))
+              msg_critical(TITLE, "bad: iota fact is still present in irfa result that is = " + result)
+        }           
+      }
     }
     (cg, result)
   }

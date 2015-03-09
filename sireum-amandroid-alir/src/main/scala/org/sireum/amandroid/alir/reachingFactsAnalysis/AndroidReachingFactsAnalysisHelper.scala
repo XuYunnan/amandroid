@@ -24,6 +24,7 @@ import java.io.File
 import java.io.PrintWriter
 import org.sireum.amandroid.AppCenter
 import org.sireum.jawa.alir.dataDependenceAnalysis.InterproceduralDataDependenceAnalysis
+import org.sireum.amandroid.alir.taintAnalysis
 /**
  * @author <a href="mailto:fgwei@k-state.edu">Fengguo Wei</a>
  * @author <a href="mailto:sroy@k-state.edu">Sankardas Roy</a>
@@ -111,12 +112,28 @@ object AndroidReachingFactsAnalysisHelper {
           
               msg_critical(TITLE,"--------------------------icfg and irfaResult are stored in file --------------")
               AppCenter.addInterproceduralReachingFactsAnalysisResult(ep.getDeclaringRecord, icfgMap(ep), irfaResultMap(ep))
-              msg_critical(TITLE, "processed-->" + icfgMap(ep).getProcessed.size)
-              //val iddResult = InterproceduralDataDependenceAnalysis(icfgMap(ep), irfaResultMap(ep))
-              //AppCenter.addInterproceduralDataDependenceAnalysisResult(ep.getDeclaringRecord, iddResult) 
+              msg_critical(TITLE, "processed-->" + icfgMap(ep).getProcessed.size)              
             } 
-        }   
-          
-      }
-  
+        }
+    
+    val headComp = entryPoints.head // this is only a representative component; nothing special
+    val appCg = icfgMap(headComp)
+    msg_critical(TITLE, "appCg nodes prior num = " + appCg.nodes.size)
+    val appIrfaResult = irfaResultMap(headComp)
+    msg_critical(TITLE, "appIrfa nodes prior num = " + appIrfaResult.getEntrySetMap.keySet.size)
+    entryPoints.map {
+        ep =>
+          if(ep != headComp){            
+            appCg.merge(icfgMap(ep))
+            appIrfaResult.merge(irfaResultMap(ep))
+            msg_critical(TITLE, "appCg nodes merge-post num = " + appCg.nodes.size)
+            msg_critical(TITLE, "appIrfa nodes merge-post num = " + appIrfaResult.getEntrySetMap.keySet.size)
+          }            
+    }
+    (appCg, appIrfaResult)
+    //val iddResult = InterproceduralDataDependenceAnalysis(appCg, appIrfaResult)
+    //AppCenter.addInterproceduralDataDependenceAnalysisResult(ep.getDeclaringRecord, iddResult) 
+    
+   }
+ 
 }

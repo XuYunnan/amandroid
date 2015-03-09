@@ -203,7 +203,7 @@ class AmandroidSocket {
     }
   }
   
-  def runCompMerge(
+  def runIrfaWithCompMerge(
             public_only : Boolean,
             parallel : Boolean
             ) = {    
@@ -220,7 +220,39 @@ class AmandroidSocket {
       if(myListener_opt.isDefined) 
         entryPoints = myListener_opt.get.entryPointFilter(entryPoints)
   
-      AndroidReachingFactsAnalysisHelper.doIrfaMerge(entryPoints, parallel)      
+       val (appCg, appIrfaRes) = AndroidReachingFactsAnalysisHelper.doIrfaMerge(entryPoints, parallel)      
+  
+      if(myListener_opt.isDefined) myListener_opt.get.onAnalysisSuccess
+    } catch {
+      case e : Exception => 
+        if(myListener_opt.isDefined) myListener_opt.get.onException(e)
+    } finally {
+      if(myListener_opt.isDefined) myListener_opt.get.onPostAnalysis
+      msg_critical(TITLE, "************************************\n")
+    }
+  }
+  
+   def runWithDDAwithCompMerge(
+            ssm : AndroidSourceAndSinkManager,
+            public_only : Boolean,
+            parallel : Boolean) = {    
+    try{
+      if(myListener_opt.isDefined) myListener_opt.get.onPreAnalysis
+      
+      var entryPoints = Center.getEntryPoints(AndroidConstants.MAINCOMP_ENV)
+      
+      if(!public_only)
+        entryPoints ++= Center.getEntryPoints(AndroidConstants.COMP_ENV)
+              
+      if(myListener_opt.isDefined) 
+        entryPoints = myListener_opt.get.entryPointFilter(entryPoints)
+      val (appCg, appIrfaRes) = AndroidReachingFactsAnalysisHelper.doIrfaMerge(entryPoints, parallel)
+      
+      val iddResult = InterproceduralDataDependenceAnalysis(appCg, appIrfaRes)
+      //AppCenter.addInterproceduralDataDependenceAnalysisResult(ep.getDeclaringRecord, iddResult)
+      val tar = AndroidDataDependentTaintAnalysis(iddResult, appIrfaRes, ssm)    
+      //AppCenter.addTaintAnalysisResult(ep.getDeclaringRecord, tar)
+ 
   
       if(myListener_opt.isDefined) myListener_opt.get.onAnalysisSuccess
     } catch {

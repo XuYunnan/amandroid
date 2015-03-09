@@ -36,11 +36,10 @@ object StaticFieldFactsMerge_run {
   object StaticFieldCounter {
     var total = 0
     var haveresult = 0
-    var haveStaticField = 0
-    var staticFieldTotal = 0
-    var foundStaticFieldContainer = 0
+    var haveIccCall = 0
+    var iccTotal = 0
     
-    override def toString : String = "total: " + total + ", haveResult: " + haveresult + ", haveStaticField: " + haveStaticField + ", staticFieldTotal: " + staticFieldTotal + ", foundStaticFieldContainer: " + foundStaticFieldContainer
+    override def toString : String = "total: " + total + ", haveResult: " + haveresult + ", haveIccCall: " + haveIccCall + ", iccTotal: " + iccTotal
   }
   
   private class StaticFieldListener(source_apk : FileResourceUri, app_info : IccCollector) extends AmandroidSocketListener {
@@ -51,11 +50,11 @@ object StaticFieldFactsMerge_run {
 		  if(codes.exists{
     	  case (rName, code) =>
     	    iccSigs.exists(code.contains(_))
-    	}) StaticFieldCounter.haveStaticField += 1
+    	}) StaticFieldCounter.haveIccCall += 1
 		  
 		  codes.foreach{
     	  case (rName, code) =>
-  	      StaticFieldCounter.staticFieldTotal += iccSigs.map(sig => SubStringCounter.countSubstring(code, sig + " @classDescriptor")).reduce((i, j) => i + j)
+  	      StaticFieldCounter.iccTotal += iccSigs.map(sig => SubStringCounter.countSubstring(code, sig + " @classDescriptor")).reduce((i, j) => i + j)
     	}
     }
 
@@ -125,7 +124,7 @@ object StaticFieldFactsMerge_run {
           val app_info = new IccCollector(file, outUri)
           app_info.collectInfo
           socket.plugListener(new StaticFieldListener(file, app_info))
-          socket.runCompMerge(false, false)
+          socket.runIrfaWithCompMerge(false, false)
         } catch {
           case e : Throwable =>
             e.printStackTrace()

@@ -78,7 +78,7 @@ class AndroidReachingFactsAnalysisBuilder(clm : ClassLoadManager){
   }
   
   
-   def buildGeneral //
+  def buildGeneral //
   (entryPointProc : JawaProcedure,
       existingCg : InterproceduralControlFlowGraph[CGNode],
       existingIrfaResult : InterProceduralMonotoneDataFlowAnalysisResultExtended[RFAFact],
@@ -417,7 +417,8 @@ class AndroidReachingFactsAnalysisBuilder(clm : ClassLoadManager){
                   target =>                     
                     var sentIntentFactsMapped = getPropertyOrElse(AmandroidAlirConstants.SENT_INTENT_FACTS, Map():IMap[JawaProcedure, ISet[RFAFact]])
                     val newFacts = mapFactsToICCTarget(factsForCallee, cj, target.getProcedureBody.procedure)
-                    sentIntentFactsMapped +=(target -> sentIntentFactsMapped.getOrElse(target, Set():ISet[RFAFact]).union(newFacts))
+                    val reducedNewFacts = newFacts.filter {x => !x.s.toString().contains("@@RFAiota")}
+                    sentIntentFactsMapped +=(target -> sentIntentFactsMapped.getOrElse(target, Set():ISet[RFAFact]).union(reducedNewFacts))
                     setProperty(AmandroidAlirConstants.SENT_INTENT_FACTS, sentIntentFactsMapped)
                 }
               }

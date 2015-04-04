@@ -89,6 +89,9 @@ object AndroidReachingFactsAnalysisHelper {
               irfaResultMap += (ep -> irfaResult)
               if(!irfaResult.getExtraInfo.diffStaticFacts(preIrfaResult.getExtraInfo).isEmpty || !irfaResult.getExtraInfo.diffIntentFacts(preIrfaResult.getExtraInfo).isEmpty) {
                 converged = false
+                System.out.println(" irfaResult.getExtraInfo.getIntentFacts = " + irfaResult.getExtraInfo.getIntentFacts)
+                System.out.println(" preirfaResult.getExtraInfo.getIntentFacts = " + preIrfaResult.getExtraInfo.getIntentFacts)
+                System.out.println(" irfaResult.getExtraInfo.diffIntentFacts(preIrfaResult.getExtraInfo) = " + irfaResult.getExtraInfo.diffIntentFacts(preIrfaResult.getExtraInfo))
               }              
               System.out.println("icfg and irfaRes computed. " + " holeNodes num = " + irfaResult.getExtraInfo.getHoleNodes().size)
               System.out.println(" irfaRes extra facts = " + irfaResult.getExtraInfo.getStaticFacts().toString)

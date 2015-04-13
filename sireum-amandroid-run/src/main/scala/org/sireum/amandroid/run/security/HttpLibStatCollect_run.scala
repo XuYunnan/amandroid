@@ -14,18 +14,15 @@ import org.sireum.jawa.util.APKFileResolver
 import java.net.URI
 import org.sireum.jawa.JawaCodeSource
 import org.sireum.jawa.Center
-import org.sireum.jawa.util.Timer
 import org.sireum.jawa.ClassLoadManager
-import org.sireum.jawa.util.TimeOutException
 import org.sireum.jawa.util.IgnoreException
-import org.sireum.jawa.alir.interProcedural.InterProceduralDataFlowGraph
 import org.sireum.jawa.GlobalConfig
 import java.io.PrintWriter
 import org.sireum.jawa.alir.LibSideEffectProvider
 import org.sireum.amandroid.AndroidGlobalConfig
 import org.sireum.amandroid.decompile.Dex2PilarConverter
 import org.sireum.amandroid.util.AndroidLibraryAPISummary
-import org.sireum.amandroid.alir.reachingFactsAnalysis.AndroidRFAConfig
+import org.sireum.amandroid.alir.pta.reachingFactsAnalysis.AndroidRFAConfig
 import org.sireum.amandroid.AppCenter
 
 /**
@@ -133,7 +130,7 @@ object HttpLibStatCollect_run {
         	val dexFile = APKFileResolver.getDexFile(file, FileUtil.toUri(srcFile.getParentFile()))
         	
         	// convert the dex file to the "pilar" form
-        	val pilarFileUri = Dex2PilarConverter.convert(dexFile)
+        	val pilarFileUri = Dex2PilarConverter.convert(dexFile, FileUtil.toUri(srcFile.getParentFile()))
       		
         	//store the app's pilar code in AmandroidCodeSource which is organized record by record.
         	JawaCodeSource.load(pilarFileUri, GlobalConfig.PILAR_FILE_EXT, AndroidLibraryAPISummary)
@@ -165,7 +162,7 @@ object HttpLibStatCollect_run {
         	}
       	
       	
-        	(JawaCodeSource.getAppUsingLibraryRecordsCodes).foreach{
+        	(JawaCodeSource.getThirdPartyLibraryRecordsCodes).foreach{
         	  case (name, code) =>
         	    
         	   if(code.contains("java.net.HttpURLConnection")){  // java net http client

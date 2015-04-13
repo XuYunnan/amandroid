@@ -17,6 +17,10 @@ object AndroidSubstituteRecordMap {
 	def getSubstituteRecordMap : IMap[String, String] = {
 	  val map : MMap[String, String] = mmapEmpty
 	  map.put("android.content.Context", "android.content.ContextWrapper")
+    map.put("android.view.Menu", "com.android.internal.view.menu.MenuBuilder")
+    map.put("android.content.SharedPreferences", "android.app.SharedPreferencesImpl")
+    map.put("android.os.IBinder", " android.os.Binder")
+    map.put("android.hardware.display.IDisplayManager", "android.hardware.display.DisplayManager")
 	  map.toMap
 	}
 }

@@ -7,9 +7,7 @@ http://www.eclipse.org/legal/epl-v10.html
 */
 package org.sireum.amandroid.run.security
 
-import org.sireum.amandroid.alir.reachingFactsAnalysis.AndroidReachingFactsAnalysisConfig
 import org.sireum.amandroid.security.AmandroidSocket
-import org.sireum.jawa.util.Timer
 import org.sireum.util.FileUtil
 import org.sireum.amandroid.security.interComponentCommunication.IccCollector
 import org.sireum.amandroid.util.AndroidLibraryAPISummary
@@ -25,6 +23,9 @@ import org.sireum.jawa.JawaCodeSource
 import org.sireum.jawa.util.SubStringCounter
 import org.sireum.util.FileResourceUri
 import org.sireum.jawa.util.IgnoreException
+import org.sireum.jawa.GlobalConfig
+import org.sireum.amandroid.alir.pta.reachingFactsAnalysis.AndroidReachingFactsAnalysisConfig
+import org.sireum.jawa.util.MyTimer
 
 
 /**
@@ -103,11 +104,13 @@ object StaticFieldFactsMerge_run {
       System.err.print("Usage: source_path output_path")
       return
     }
-    
-    AndroidReachingFactsAnalysisConfig.k_context = 1
+
+    GlobalConfig.ICFG_CONTEXT_K = 1
     AndroidReachingFactsAnalysisConfig.resolve_icc = false
+    AndroidReachingFactsAnalysisConfig.parallel = false
     AndroidReachingFactsAnalysisConfig.resolve_static_init = false
-    AndroidReachingFactsAnalysisConfig.timeout = 5
+
+
     val socket = new AmandroidSocket
     socket.preProcess
     
@@ -120,11 +123,13 @@ object StaticFieldFactsMerge_run {
       file =>
         try{
           msg_critical(TITLE, "####" + file + "#####")
+          val timer = new MyTimer(10)
+          timer.start
           val outUri = socket.loadApk(file, outputPath, AndroidLibraryAPISummary)
-          val app_info = new IccCollector(file, outUri)
+          val app_info = new IccCollector(file, outUri, Some(timer))
           app_info.collectInfo
           socket.plugListener(new StaticFieldListener(file, app_info))
-          socket.runIrfaWithCompMerge(false, false)
+          socket.runIrfaWithCompMerge(false, false, Some(timer))
         } catch {
           case e : Throwable =>
             e.printStackTrace()

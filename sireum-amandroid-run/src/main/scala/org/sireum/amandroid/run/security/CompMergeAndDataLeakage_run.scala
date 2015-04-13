@@ -8,7 +8,6 @@ http://www.eclipse.org/legal/epl-v10.html
 package org.sireum.amandroid.run.security
 
 import org.sireum.amandroid.security._
-import org.sireum.amandroid.alir.reachingFactsAnalysis.AndroidReachingFactsAnalysisConfig
 import org.sireum.jawa.MessageCenter
 import org.sireum.jawa.MessageCenter._
 import org.sireum.util.FileUtil
@@ -16,7 +15,6 @@ import org.sireum.amandroid.appInfo.AppInfoCollector
 import org.sireum.amandroid.alir.taintAnalysis.DefaultAndroidSourceAndSinkManager
 import org.sireum.amandroid.util.AndroidLibraryAPISummary
 import org.sireum.amandroid.AndroidGlobalConfig
-import org.sireum.jawa.util.Timer
 import org.sireum.amandroid.AppCenter
 import org.sireum.util.FileResourceUri
 import org.sireum.jawa.util.IgnoreException
@@ -24,6 +22,9 @@ import java.io.File
 import java.io.FileOutputStream
 import java.io.BufferedWriter
 import java.io.OutputStreamWriter
+import org.sireum.amandroid.alir.pta.reachingFactsAnalysis.AndroidReachingFactsAnalysisConfig
+import org.sireum.jawa.GlobalConfig
+import org.sireum.jawa.util.MyTimer
 
 /**
  * @author <a href="mailto:fgwei@k-state.edu">Fengguo Wei</a>
@@ -91,11 +92,11 @@ object CompMergeAndDataLeakage_run {
     
     try{
     
-      AndroidReachingFactsAnalysisConfig.k_context = 1
+      GlobalConfig.ICFG_CONTEXT_K = 1
       AndroidReachingFactsAnalysisConfig.resolve_icc = false
-      AndroidReachingFactsAnalysisConfig.parallel = true
+      AndroidReachingFactsAnalysisConfig.parallel = false
       AndroidReachingFactsAnalysisConfig.resolve_static_init = false
-      AndroidReachingFactsAnalysisConfig.timeout = 5
+
       val socket = new AmandroidSocket
       socket.preProcess
       
@@ -109,12 +110,14 @@ object CompMergeAndDataLeakage_run {
         file =>
           try{
             msg_critical(TITLE, "####" + file + "#####")
+            val timer = new MyTimer(10)
+            timer.start
             val outUri = socket.loadApk(file, outputPath, AndroidLibraryAPISummary)
-            val app_info = new AppInfoCollector(file, outUri)
+            val app_info = new AppInfoCollector(file, outUri, Some(timer))
             app_info.collectInfo
             val ssm = new DefaultAndroidSourceAndSinkManager(app_info.getPackageName, app_info.getLayoutControls, app_info.getCallbackMethods, AndroidGlobalConfig.SourceAndSinkFilePath)
             socket.plugListener(new DataLeakageListener(file, outputPath))
-            socket.runWithDDAwithCompMerge(ssm, false, false)
+            socket.runWithDDAwithCompMerge(ssm, false, false, Some(timer))
           } catch {
             case e : Throwable =>
               e.printStackTrace()

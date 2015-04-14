@@ -304,35 +304,39 @@ class AndroidReachingFactsAnalysisBuilder(clm : ClassLoadManager){
 //	      val fieldsFacts = getFieldsFacts(rhss, s, currentNode.getContext)
 //	      result ++= fieldsFacts
 	      checkAndLoadClasses(lhss, rhss, a, s, currentNode)
+        if(ReachingFactsAnalysisHelper.isStaticFieldRead(a)){
+          val holeNodes: ISet[ICFGLocNode] = getPropertyOrElseUpdate(AmandroidAlirConstants.HOLE_NODES, Set())
+          setProperty(AmandroidAlirConstants.HOLE_NODES, holeNodes+currentNode)
+          System.out.println("one hole node is " + currentNode.toString())
+          val staticFacts: ISet[RFAFact] = getPropertyOrElse(AmandroidAlirConstants.GLOBAL_FACTS, Set())          
+          staticFacts.foreach{
+            case RFAFact(sl,v) =>
+              rhss.foreach{
+                  rhs=>
+                      rhs match{
+                        case ne : NameExp =>
+                          val slot = VarSlot(ne.name.name)
+                          if(slot == sl)
+                            ptaresult.addInstance(sl, currentNode.getContext, v)
+                        case _ =>
+                      }
+              }              
+          }
+        }  
 	      val values = ReachingFactsAnalysisHelper.processRHSs(rhss, currentNode.getContext, ptaresult) 
 	      slots.foreach{
 	        case(i, (slot, _)) =>
 	          if(values.contains(i))
 	            result ++= values(i).map{v => RFAFact(slot, v)}
 	      }
-
+    
         if(ReachingFactsAnalysisHelper.isStaticFieldRead(a)){
-          val holeNodes: MSet[ICFGLocNode] = getPropertyOrElseUpdate(AmandroidAlirConstants.HOLE_NODES, msetEmpty)
-          setProperty(AmandroidAlirConstants.HOLE_NODES, holeNodes+currentNode)
-          System.out.println("one hole node is " + currentNode.toString())
-          val s1 = s ++ getPropertyOrElse(AmandroidAlirConstants.GLOBAL_FACTS, Set():ISet[RFAFact]) // here we add the global facts to s to make s1
-          s1.foreach{
-            case RFAFact(sl,v) => 
-              if(rhss.contains(sl))
-                ptaresult.addInstance(sl, currentNode.getContext, v)
-          }
-          val values = ReachingFactsAnalysisHelper.processRHSs(rhss, currentNode.getContext, ptaresult)  // note usage of s1
-          slots.foreach{
-            case(i, (slot, _)) =>
-              if(values.contains(i))
-                result ++= values(i).map{v => RFAFact(slot, v)}
-            }
-          
-        }      
+          System.out.println(" static field read result = " + result)
+        }
         if(ReachingFactsAnalysisHelper.isStaticFieldWrite(a)){
-          val globalFacts: MSet[RFAFact] = getPropertyOrElseUpdate(AmandroidAlirConstants.GLOBAL_FACTS, msetEmpty)        
+          val globalFacts: ISet[RFAFact] = getPropertyOrElseUpdate(AmandroidAlirConstants.GLOBAL_FACTS, Set())        
           setProperty(AmandroidAlirConstants.GLOBAL_FACTS, globalFacts++result) // here result has only global facts, which were added in the 1st block above
-          }
+        }
       }
       
       val exceptionFacts = getExceptionFacts(a, s, currentNode.getContext)        
@@ -466,7 +470,7 @@ class AndroidReachingFactsAnalysisBuilder(clm : ClassLoadManager){
                 val (retFacts, targets) = AndroidReachingFactsAnalysisHelper.doICCCall(ptaresult, calleep, args, cj.lhss.map(lhs=>lhs.name.name), callerContext)
                 targets.foreach{
                   target =>                     
-                    var sentIntentFactsMapped: MMap[JawaProcedure, ISet[RFAFact]] = getPropertyOrElse(AmandroidAlirConstants.SENT_INTENT_FACTS, mmapEmpty)
+                    var sentIntentFactsMapped: IMap[JawaProcedure, ISet[RFAFact]] = getPropertyOrElse(AmandroidAlirConstants.SENT_INTENT_FACTS, Map())
                     val newFacts = mapFactsToICCTarget(factsForCallee, cj, target.getProcedureBody.procedure)
                     val reducedNewFacts = newFacts.filter {x => !x.s.toString().contains("@@RFAiota")}
                     sentIntentFactsMapped +=(target -> sentIntentFactsMapped.getOrElse(target, Set():ISet[RFAFact]).union(reducedNewFacts))

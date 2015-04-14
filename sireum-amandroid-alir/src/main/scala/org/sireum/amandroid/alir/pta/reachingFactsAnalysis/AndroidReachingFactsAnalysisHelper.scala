@@ -50,8 +50,7 @@ object AndroidReachingFactsAnalysisHelper {
     AndroidModelCallHandler.doICCCall(s, calleeProc, args, retVars, currentContext)
   }
   
-  def doIrfaMerge(entryPoints:Set[JawaProcedure], parallel: Boolean, timer : Option[MyTimer]) ={
-    
+  def doIrfaMerge(entryPoints:Set[JawaProcedure], parallel: Boolean, timer : Option[MyTimer]) ={    
     //initialize the appPool and worklist           
     var idfgMap : MMap[JawaProcedure, InterProceduralDataFlowGraph] = mmapEmpty
     var irfaMap : MMap[JawaProcedure, AndroidReachingFactsAnalysisExtended.Result] = mmapEmpty
@@ -73,7 +72,7 @@ object AndroidReachingFactsAnalysisHelper {
     while(!worklist.isEmpty){
       converged = true
       val ep = worklist.remove(0)
-      msg_critical(TITLE, "--------------worklist item is Component " + ep + "--------------")
+      msg_critical(TITLE, "--------------Current item taken out from worklist is Component:" + ep + "--------------")
       compPool(ep).merge(appPool)
       val initialfacts = AndroidRFAConfig.getInitialFactsForMainEnvironment(ep)
       val receivedIntentFacts = compPool(ep).getIntentFacts.getOrElse(ep, Set())

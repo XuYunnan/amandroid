@@ -59,7 +59,7 @@ class AndroidReachingFactsAnalysisBuilder(clm : ClassLoadManager){
   final val TITLE = "AndroidReachingFactsAnalysisBuilder"
   
   var icfg : InterproceduralControlFlowGraph[ICFGNode] = null
-  val ptaresult = new PTAResult
+  var ptaresult : PTAResult = null
   val needtoremove : MMap[Context, RFAFact] = mmapEmpty
   
   def build //
@@ -100,7 +100,7 @@ class AndroidReachingFactsAnalysisBuilder(clm : ClassLoadManager){
       new InterProceduralDataFlowGraph(newicfg, newptares) 
     } else existingIdfg
     this.icfg = idfg.icfg
-    this.ptaresult.merge(idfg.ptaresult)
+    this.ptaresult = idfg.ptaresult
     val initContext = new Context(GlobalConfig.ICFG_CONTEXT_K).setComponentName(entryPointProc.getName)
     if(existingIdfg==null)
       this.icfg.collectCfgToBaseGraph(entryPointProc, initContext.copy, true)
@@ -328,25 +328,23 @@ class AndroidReachingFactsAnalysisBuilder(clm : ClassLoadManager){
 	        case(i, (slot, _)) =>
 	          if(values.contains(i))
 	            result ++= values(i).map{v => RFAFact(slot, v)}
-	      }
-    
+	      }    
         if(ReachingFactsAnalysisHelper.isStaticFieldRead(a)){
           System.out.println(" static field read result = " + result)
         }
         if(ReachingFactsAnalysisHelper.isStaticFieldWrite(a)){
-          val globalFacts: ISet[RFAFact] = getPropertyOrElseUpdate(AmandroidAlirConstants.GLOBAL_FACTS, Set())        
-          setProperty(AmandroidAlirConstants.GLOBAL_FACTS, globalFacts++result) // here result has only global facts, which were added in the 1st block above
+          val staticFacts: ISet[RFAFact] = getPropertyOrElseUpdate(AmandroidAlirConstants.GLOBAL_FACTS, Set())        
+          setProperty(AmandroidAlirConstants.GLOBAL_FACTS, staticFacts++result) // here result has only global facts, which were added above
         }
-      }
-      
+      }      
       val exceptionFacts = getExceptionFacts(a, s, currentNode.getContext)        
       result ++= exceptionFacts
+//      needtoremove.foreach{
+//        case (c, f) => ptaresult.removeInstance(f.s, c, f.v)
+//      }
       result.foreach{
         f =>
           ptaresult.addInstance(f.s, currentNode.getContext, f.v)
-      }
-      needtoremove.foreach{
-        case (c, f) => ptaresult.removeInstance(f.s, c, f.v)
       }
       needtoremove.clear
       result

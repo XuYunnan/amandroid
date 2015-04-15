@@ -119,7 +119,7 @@ object AndroidReachingFactsAnalysisHelper {
       ep =>
         if(ep != headComp){            
           appIdfg.merge(idfgMap(ep))           
-          msg_critical(TITLE, "appIdfg icfg nodes merge-post num = " + appIdfg.icfg.nodes.size)          
+          msg_critical(TITLE, "appIdfg icfg nodes post-merge num = " + appIdfg.icfg.nodes.size)          
         }            
     }
     appIdfg

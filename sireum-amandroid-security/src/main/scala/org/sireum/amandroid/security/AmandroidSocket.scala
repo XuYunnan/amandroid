@@ -225,24 +225,18 @@ class AmandroidSocket {
             parallel : Boolean,
             timer : Option[MyTimer]) = {    
     try{
-      if(myListener_opt.isDefined) myListener_opt.get.onPreAnalysis
-      
-      var entryPoints = Center.getEntryPoints(AndroidConstants.MAINCOMP_ENV)
-      
+      if(myListener_opt.isDefined) myListener_opt.get.onPreAnalysis      
+      var entryPoints = Center.getEntryPoints(AndroidConstants.MAINCOMP_ENV)      
       if(!public_only)
-        entryPoints ++= Center.getEntryPoints(AndroidConstants.COMP_ENV)
-              
+        entryPoints ++= Center.getEntryPoints(AndroidConstants.COMP_ENV)              
       if(myListener_opt.isDefined) 
         entryPoints = myListener_opt.get.entryPointFilter(entryPoints)
       val appIdfg = AndroidReachingFactsAnalysisHelper.doIrfaMerge(entryPoints, parallel, timer)
-      
       val iddResult = InterproceduralDataDependenceAnalysis(appIdfg)
       //AppCenter.addInterproceduralDataDependenceAnalysisResult(ep.getDeclaringRecord, iddResult)
       val tar = AndroidDataDependentTaintAnalysis(iddResult, appIdfg.ptaresult, ssm)    
       //AppCenter.addTaintAnalysisResult(ep.getDeclaringRecord, tar)
- 
-  
-      if(myListener_opt.isDefined) myListener_opt.get.onAnalysisSuccess
+     if(myListener_opt.isDefined) myListener_opt.get.onAnalysisSuccess
     } catch {
       case e : Exception => 
         if(myListener_opt.isDefined) myListener_opt.get.onException(e)

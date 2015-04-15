@@ -25,6 +25,7 @@ import java.io.OutputStreamWriter
 import org.sireum.amandroid.alir.pta.reachingFactsAnalysis.AndroidReachingFactsAnalysisConfig
 import org.sireum.jawa.GlobalConfig
 import org.sireum.jawa.util.MyTimer
+import org.sireum.amandroid.alir.taintAnalysis.DataLeakageAndroidSourceAndSinkManager
 
 /**
  * @author <a href="mailto:fgwei@k-state.edu">Fengguo Wei</a>
@@ -115,7 +116,7 @@ object CompMergeAndDataLeakage_run {
             val outUri = socket.loadApk(file, outputPath, AndroidLibraryAPISummary)
             val app_info = new AppInfoCollector(file, outUri, Some(timer))
             app_info.collectInfo
-            val ssm = new DefaultAndroidSourceAndSinkManager(app_info.getPackageName, app_info.getLayoutControls, app_info.getCallbackMethods, AndroidGlobalConfig.SourceAndSinkFilePath)
+            val ssm = new DataLeakageAndroidSourceAndSinkManager(app_info.getPackageName, app_info.getLayoutControls, app_info.getCallbackMethods, AndroidGlobalConfig.SourceAndSinkFilePath)
             socket.plugListener(new DataLeakageListener(file, outputPath))
             socket.runWithDDAwithCompMerge(ssm, false, false, Some(timer))
           } catch {

@@ -75,6 +75,8 @@ class AndroidReachingFactsAnalysisBuilder(clm : ClassLoadManager){
     val initial : ISet[RFAFact] = isetEmpty
     val icfg = new InterproceduralControlFlowGraph[ICFGNode]
     this.icfg = icfg
+    val ptares = new PTAResult
+    this.ptaresult = ptares
     icfg.collectCfgToBaseGraph(entryPointProc, initContext, true)
     val iota : ISet[RFAFact] = initialFacts + RFAFact(VarSlot("@@RFAiota"), NullInstance(initContext.copy))
     val result = InterProceduralMonotoneDataFlowAnalysisFramework[RFAFact](icfg,
@@ -339,11 +341,11 @@ class AndroidReachingFactsAnalysisBuilder(clm : ClassLoadManager){
       }      
       val exceptionFacts = getExceptionFacts(a, s, currentNode.getContext)        
       result ++= exceptionFacts
-//      needtoremove.foreach{
-//        case (c, f) => ptaresult.removeInstance(f.s, c, f.v)
-//      }
+      needtoremove.foreach{
+        case (c, f) => ptaresult.removeInstance(f.s, c, f.v)
+      }
       result.foreach{
-        f =>
+        case f  =>
           ptaresult.addInstance(f.s, currentNode.getContext, f.v)
       }
       needtoremove.clear

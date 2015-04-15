@@ -94,7 +94,7 @@ object DataLeakage_run {
     AndroidReachingFactsAnalysisConfig.parallel = true
     AndroidReachingFactsAnalysisConfig.resolve_static_init = false
 
-    MessageCenter.msglevel = MessageCenter.MSG_LEVEL.CRITICAL
+    MessageCenter.msglevel = MessageCenter.MSG_LEVEL.NORMAL
     val socket = new AmandroidSocket
     socket.preProcess
     

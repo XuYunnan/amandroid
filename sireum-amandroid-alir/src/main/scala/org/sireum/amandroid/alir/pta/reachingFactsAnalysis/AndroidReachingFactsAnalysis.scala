@@ -305,6 +305,8 @@ class AndroidReachingFactsAnalysisBuilder(clm : ClassLoadManager){
 	      val slots = ReachingFactsAnalysisHelper.processLHSs(lhss, currentNode.getContext, ptaresult)
 //	      val fieldsFacts = getFieldsFacts(rhss, s, currentNode.getContext)
 //	      result ++= fieldsFacts
+        if(currentNode.getContext.toString().contains("L04711c"))
+          System.out.println(" in Gen: context = " + currentNode.getContext.toString())
 	      checkAndLoadClasses(lhss, rhss, a, s, currentNode)
         if(ReachingFactsAnalysisHelper.isStaticFieldRead(a)){
           val holeNodes: ISet[ICFGLocNode] = getPropertyOrElseUpdate(AmandroidAlirConstants.HOLE_NODES, Set())

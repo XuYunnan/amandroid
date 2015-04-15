@@ -116,6 +116,7 @@ object CompMergeAndDataLeakage_run {
             val outUri = socket.loadApk(file, outputPath, AndroidLibraryAPISummary)
             val app_info = new AppInfoCollector(file, outUri, Some(timer))
             app_info.collectInfo
+            System.out.println("layout controls = " + app_info.getLayoutControls)
             val ssm = new DataLeakageAndroidSourceAndSinkManager(app_info.getPackageName, app_info.getLayoutControls, app_info.getCallbackMethods, AndroidGlobalConfig.SourceAndSinkFilePath)
             socket.plugListener(new DataLeakageListener(file, outputPath))
             socket.runWithDDAwithCompMerge(ssm, false, false, Some(timer))

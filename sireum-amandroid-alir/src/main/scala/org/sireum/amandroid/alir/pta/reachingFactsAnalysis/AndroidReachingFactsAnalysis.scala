@@ -351,6 +351,10 @@ class AndroidReachingFactsAnalysisBuilder(clm : ClassLoadManager){
           ptaresult.addInstance(f.s, currentNode.getContext, f.v)
       }
       needtoremove.clear
+      result.foreach{
+        f =>
+          ptaresult.addInstance(f.s, currentNode.getContext, f.v)
+      }
       result
     }
 

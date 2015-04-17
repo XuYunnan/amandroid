@@ -46,9 +46,6 @@ import org.sireum.jawa.alir.dataFlowAnalysis.InterProceduralDataFlowGraph
 import jdk.nashorn.internal.ir.debug.ObjectSizeCalculator
 import org.sireum.jawa.alir.dataFlowAnalysis.InterProceduralMonotoneDataFlowAnalysisResultExtended
 import org.sireum.jawa.alir.dataFlowAnalysis.InterProceduralMonotoneDataFlowAnalysisFrameworkExtended
-import org.sireum.jawa.alir.dataFlowAnalysis.InterProceduralDataFlowGraph
-import org.sireum.jawa.alir.dataFlowAnalysis.InterProceduralDataFlowGraph
-import org.sireum.jawa.alir.dataFlowAnalysis.InterProceduralDataFlowGraph
 
 /**
  * @author <a href="mailto:fgwei@k-state.edu">Fengguo Wei</a>
@@ -345,10 +342,6 @@ class AndroidReachingFactsAnalysisBuilder(clm : ClassLoadManager){
       result ++= exceptionFacts
       needtoremove.foreach{
         case (c, f) => ptaresult.removeInstance(f.s, c, f.v)
-      }
-      result.foreach{
-        case f  =>
-          ptaresult.addInstance(f.s, currentNode.getContext, f.v)
       }
       needtoremove.clear
       result.foreach{

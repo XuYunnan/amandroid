@@ -89,24 +89,17 @@ object CompMergeAndDataLeakage_run {
     if(args.size != 2){
       System.err.print("Usage: source_path output_path")
       return
-    }
-    
-    try{
-    
+    }    
+    try{   
       GlobalConfig.ICFG_CONTEXT_K = 1
       AndroidReachingFactsAnalysisConfig.resolve_icc = false
       AndroidReachingFactsAnalysisConfig.parallel = false
       AndroidReachingFactsAnalysisConfig.resolve_static_init = false
-
       val socket = new AmandroidSocket
-      socket.preProcess
-      
+      socket.preProcess      
       val sourcePath = args(0)
       val outputPath = args(1)
-      
-      
-      val files = FileUtil.listFiles(FileUtil.toUri(sourcePath), ".apk", true).toSet
-      
+      val files = FileUtil.listFiles(FileUtil.toUri(sourcePath), ".apk", true).toSet      
       files.foreach{
         file =>
           try{
@@ -116,7 +109,6 @@ object CompMergeAndDataLeakage_run {
             val outUri = socket.loadApk(file, outputPath, AndroidLibraryAPISummary)
             val app_info = new AppInfoCollector(file, outUri, Some(timer))
             app_info.collectInfo
-            System.out.println("layout controls = " + app_info.getLayoutControls)
             val ssm = new DataLeakageAndroidSourceAndSinkManager(app_info.getPackageName, app_info.getLayoutControls, app_info.getCallbackMethods, AndroidGlobalConfig.SourceAndSinkFilePath)
             socket.plugListener(new DataLeakageListener(file, outputPath))
             socket.runWithDDAwithCompMerge(ssm, false, false, Some(timer))

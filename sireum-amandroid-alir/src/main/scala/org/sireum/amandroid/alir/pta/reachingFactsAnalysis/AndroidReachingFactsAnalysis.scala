@@ -302,8 +302,8 @@ class AndroidReachingFactsAnalysisBuilder(clm : ClassLoadManager){
 	      val slots = ReachingFactsAnalysisHelper.processLHSs(lhss, currentNode.getContext, ptaresult)
 //	      val fieldsFacts = getFieldsFacts(rhss, s, currentNode.getContext)
 //	      result ++= fieldsFacts
-        if(currentNode.getContext.toString().contains("L047118"))
-          System.out.println(" in Gen: context = " + currentNode.getContext.toString())
+//        if(currentNode.getContext.toString().contains("L047118"))
+//          System.out.println(" in Gen: context = " + currentNode.getContext.toString())
 	      checkAndLoadClasses(lhss, rhss, a, s, currentNode)
         if(ReachingFactsAnalysisHelper.isStaticFieldRead(a)){
           val holeNodes: ISet[ICFGLocNode] = getPropertyOrElseUpdate(AmandroidAlirConstants.HOLE_NODES, Set())
@@ -330,9 +330,9 @@ class AndroidReachingFactsAnalysisBuilder(clm : ClassLoadManager){
 	          if(values.contains(i))
 	            result ++= values(i).map{v => RFAFact(slot, v)}
 	      }    
-        if(ReachingFactsAnalysisHelper.isStaticFieldRead(a)){
-          System.out.println(" static field read result = " + result)
-        }
+//        if(ReachingFactsAnalysisHelper.isStaticFieldRead(a)){
+//          System.out.println(" static field read result = " + result)
+//        }
         if(ReachingFactsAnalysisHelper.isStaticFieldWrite(a)){
           val staticFacts: ISet[RFAFact] = getPropertyOrElseUpdate(AmandroidAlirConstants.GLOBAL_FACTS, Set())        
           setProperty(AmandroidAlirConstants.GLOBAL_FACTS, staticFacts++result) // here result has only global facts, which were added above

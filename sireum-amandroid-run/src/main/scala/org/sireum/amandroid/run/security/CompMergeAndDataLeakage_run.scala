@@ -33,7 +33,7 @@ import org.sireum.amandroid.alir.taintAnalysis.DataLeakageAndroidSourceAndSinkMa
  */ 
 object CompMergeAndDataLeakage_run {
   private final val TITLE = "CompMergeAndDataLeakage_run"
-  MessageCenter.msglevel = MessageCenter.MSG_LEVEL.CRITICAL
+  MessageCenter.msglevel = MessageCenter.MSG_LEVEL.NORMAL
   object DataLeakageCounter {
     var total = 0
     var haveresult = 0
@@ -111,7 +111,8 @@ object CompMergeAndDataLeakage_run {
             app_info.collectInfo
             val ssm = new DataLeakageAndroidSourceAndSinkManager(app_info.getPackageName, app_info.getLayoutControls, app_info.getCallbackMethods, AndroidGlobalConfig.SourceAndSinkFilePath)
             socket.plugListener(new DataLeakageListener(file, outputPath))
-            socket.runWithDDAwithCompMerge(ssm, false, false, Some(timer))
+            socket.runIrfaWithCompMerge(false, false, Some(timer)) // comment
+            // socket.runWithDDAwithCompMerge(ssm, false, false, Some(timer)) // uncomment
           } catch {
             case e : Throwable =>
               e.printStackTrace()

@@ -68,35 +68,39 @@ object AndroidReachingFactsAnalysisHelper {
         compPool += (ep -> irfaRes.getExtraInfo)
         //appPool.merge(compPool(ep))
         worklist += ep
-    }       
-    while(!worklist.isEmpty){
-      converged = true
-      val ep = worklist.remove(0)
-      msg_critical(TITLE, "--------------Current item taken out from worklist is Component:" + ep + "--------------")
-      //System.out.println(" appPool.getIntentFacts = " + appPool.getIntentFacts)
-      //System.out.println(" compPool.getIntentFacts before merge with appPool = " + compPool(ep).getIntentFacts)
-      compPool(ep).merge(appPool)
-      //System.out.println(" compPool.getIntentFacts after merge with appPool = " + compPool(ep).getIntentFacts)
-      val initialfacts = AndroidRFAConfig.getInitialFactsForMainEnvironment(ep)
-      val receivedIntentFacts = compPool(ep).getIntentFacts.getOrElse(ep, Set())
-      //System.out.println(" receivedIntentFacts = " + receivedIntentFacts)
-      val (idfg, irfaResult) = AndroidReachingFactsAnalysisExtended(ep, idfgMap(ep), irfaMap(ep), initialfacts ++ receivedIntentFacts, new ClassLoadManager, timer)
-      idfgMap +=(ep->idfg)
-      irfaMap +=(ep->irfaResult)
-      compPool += (ep->irfaResult.getExtraInfo)
-      if(appPool.hasLessStaticFactsThan(compPool(ep))){
-        worklist ++= entryPoints
-        appPool.mergeStaticFacts(compPool(ep))
-      }
-      if(appPool.hasLessIntentFactsThan(compPool(ep))){
-        worklist ++= appPool.findIntentDestComp(compPool(ep))
-        appPool.mergeIntentFacts(compPool(ep))
-      }
-      System.out.println(" irfaResult.getExtraInfo.getIntentFacts at end of convergence loop = " + irfaResult.getExtraInfo.getIntentFacts)
-//      System.out.println(" compPool.getIntentFacts et end of while = " + compPool(ep).getIntentFacts)
-//      System.out.println(" appPool.getIntentFacts at end of while = " + appPool.getIntentFacts)
-//      System.out.println(" irfaResult.getExtraInfo.getStaticFacts = " + irfaResult.getExtraInfo.getStaticFacts())
     }
+    val phase2=false
+    if(phase2){
+      while(!worklist.isEmpty){
+        converged = true
+        val ep = worklist.remove(0)
+        msg_critical(TITLE, "--------------Current item taken out from worklist is Component:" + ep + "--------------")
+        //System.out.println(" appPool.getIntentFacts = " + appPool.getIntentFacts)
+        //System.out.println(" compPool.getIntentFacts before merge with appPool = " + compPool(ep).getIntentFacts)
+        compPool(ep).merge(appPool)
+        //System.out.println(" compPool.getIntentFacts after merge with appPool = " + compPool(ep).getIntentFacts)
+        val initialfacts = AndroidRFAConfig.getInitialFactsForMainEnvironment(ep)
+        val receivedIntentFacts = compPool(ep).getIntentFacts.getOrElse(ep, Set())
+        //System.out.println(" receivedIntentFacts = " + receivedIntentFacts)
+        val (idfg, irfaResult) = AndroidReachingFactsAnalysisExtended(ep, idfgMap(ep), irfaMap(ep), initialfacts ++ receivedIntentFacts, new ClassLoadManager, timer)
+        idfgMap +=(ep->idfg)
+        irfaMap +=(ep->irfaResult)
+        compPool += (ep->irfaResult.getExtraInfo)
+        if(appPool.hasLessStaticFactsThan(compPool(ep))){
+          worklist ++= entryPoints
+          appPool.mergeStaticFacts(compPool(ep))
+        }
+        if(appPool.hasLessIntentFactsThan(compPool(ep))){
+          worklist ++= appPool.findIntentDestComp(compPool(ep))
+          appPool.mergeIntentFacts(compPool(ep))
+        }
+        System.out.println(" irfaResult.getExtraInfo.getIntentFacts at end of convergence loop = " + irfaResult.getExtraInfo.getIntentFacts)
+  //      System.out.println(" compPool.getIntentFacts et end of while = " + compPool(ep).getIntentFacts)
+  //      System.out.println(" appPool.getIntentFacts at end of while = " + appPool.getIntentFacts)
+  //      System.out.println(" irfaResult.getExtraInfo.getStaticFacts = " + irfaResult.getExtraInfo.getStaticFacts())
+      }
+    }
+
     
 
 //        

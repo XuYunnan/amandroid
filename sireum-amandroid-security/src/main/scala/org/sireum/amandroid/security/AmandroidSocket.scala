@@ -233,9 +233,9 @@ class AmandroidSocket {
       if(myListener_opt.isDefined) 
         entryPoints = myListener_opt.get.entryPointFilter(entryPoints)
       val appIdfg = AndroidReachingFactsAnalysisHelper.doIrfaMerge(entryPoints, parallel, timer)
-      val iddResult = InterproceduralDataDependenceAnalysis(appIdfg)
+      val iddResult = InterproceduralDataDependenceAnalysis(appIdfg) 
       //AppCenter.addInterproceduralDataDependenceAnalysisResult(ep.getDeclaringRecord, iddResult)
-      val tar = AndroidDataDependentTaintAnalysis(iddResult, appIdfg.ptaresult, ssm)    
+      val tar = AndroidDataDependentTaintAnalysis(iddResult, appIdfg.ptaresult, ssm)   
       //AppCenter.addTaintAnalysisResult(ep.getDeclaringRecord, tar)
      if(myListener_opt.isDefined) myListener_opt.get.onAnalysisSuccess
     } catch {

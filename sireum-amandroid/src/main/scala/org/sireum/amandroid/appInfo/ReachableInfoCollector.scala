@@ -127,7 +127,22 @@ class ReachableInfoCollector(entryPointClasses:Set[String], timer : Option[MyTim
 	 *
 	 */
 	def collectCallbackMethods() = {
-	  findClassLayoutMappings()
+    findClassLayoutMappings()
+    // find the RPC methods of each Service component and add them as callback methods
+    entryPointClasses.foreach{
+      ep => 
+        val record = Center.resolveRecord(ep, Center.ResolveLevel.HIERARCHY)
+        val ancestors = Center.getRecordHierarchy.getAllSuperClassesOf(record)
+        val sAnc = ancestors.filter { x => x.getName == AndroidEntryPointConstants.SERVICE_CLASS }
+        if(!sAnc.isEmpty){
+          val procs = record.getProcedures.filter { proc => !(proc.isConstructor || AndroidEntryPointConstants.getServiceLifecycleMethods().contains(proc.getSubSignature)) }
+          procs.map { 
+            p => 
+              checkAndAddMethod(p, record) // This is a RPC method and record is an entryPoint
+          }
+        }
+    }
+    // now collect other callback methods
 	  // worklist is a list of tuples of the format (a reachable proc's declaring class, app-entrypoint-component)
 	  val worklist : MList[(JawaRecord, JawaRecord)] = mlistEmpty
 	  val processed : MList[(JawaRecord, JawaRecord)] = mlistEmpty

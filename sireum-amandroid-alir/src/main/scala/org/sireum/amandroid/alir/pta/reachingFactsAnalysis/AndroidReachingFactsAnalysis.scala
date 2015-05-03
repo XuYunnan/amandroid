@@ -371,8 +371,7 @@ class AndroidReachingFactsAnalysisBuilder(clm : ClassLoadManager){
       result
     }
   }
-  
-  
+   
   class Kill
       extends InterProceduralMonotonicFunction[RFAFact] {
     
@@ -468,6 +467,7 @@ class AndroidReachingFactsAnalysisBuilder(clm : ClassLoadManager){
               else { // this else block is for processing icc calls in "component merge" mode
                 val factsForCallee = getFactsForICCTarget(s, cj, calleep, callerContext)
                 val (retFacts, targets) = AndroidReachingFactsAnalysisHelper.doICCCall(ptaresult, calleep, args, cj.lhss.map(lhs=>lhs.name.name), callerContext)
+                //System.out.println("factsForCallee" + factsForCallee + "\n icc targets = " + targets)
                 targets.foreach{
                   target =>                     
                     var sentIntentFactsMapped: IMap[JawaProcedure, ISet[RFAFact]] = getPropertyOrElse(AmandroidAlirConstants.SENT_INTENT_FACTS, Map())

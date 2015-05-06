@@ -46,6 +46,7 @@ import org.sireum.jawa.alir.dataFlowAnalysis.InterProceduralDataFlowGraph
 import jdk.nashorn.internal.ir.debug.ObjectSizeCalculator
 import org.sireum.jawa.alir.dataFlowAnalysis.InterProceduralMonotoneDataFlowAnalysisResultExtended
 import org.sireum.jawa.alir.dataFlowAnalysis.InterProceduralMonotoneDataFlowAnalysisFrameworkExtended
+import org.sireum.jawa.alir.dataFlowAnalysis.RpcData
 
 /**
  * @author <a href="mailto:fgwei@k-state.edu">Fengguo Wei</a>
@@ -105,6 +106,29 @@ class AndroidReachingFactsAnalysisBuilder(clm : ClassLoadManager){
       this.icfg.collectCfgToBaseGraph(entryPointProc, initContext.copy, true)
     val iotaFact = RFAFact(VarSlot("@@RFAiota"), NullInstance(initContext.copy))  
     val iota : ISet[RFAFact] = initialFacts + iotaFact
+    // hack for rpc; flowing callfacts from extraInfo (in app-pool) to calleeEntryNode
+    if(entryPointProc.getName.contains("LocalWordService")){
+      if(existingIrfaResult != null){ // in second phase
+        val rpcData = existingIrfaResult.extraInfo.getRpcData
+        val callernode = rpcData.callerCallNode
+        val callFacts = rpcData.callFacts
+        if(callernode != null && !callFacts.isEmpty){ 
+          existingIrfaResult.getEntrySetMap().foreach{
+            case (x, y) => {
+              x match {
+                case x1:ICFGEntryNode =>
+                  if(x1.toString().contains("injectString")){
+                    val prevFacts = existingIrfaResult.getEntrySetMap.apply(x1)
+                    existingIrfaResult.getEntrySetMap.update(x1, prevFacts ++ callFacts)
+                  }
+                case _ =>
+              }
+            }            
+          }
+        }
+      }
+    }
+    // end of hack for rpc
     var result = InterProceduralMonotoneDataFlowAnalysisFrameworkExtended[RFAFact](icfg, existingIrfaResult,
       true, true, false, AndroidReachingFactsAnalysisConfig.parallel, gen, kill, callr, iota, initial, switchAsOrderedMatch, Some(nl))
     result.getEntrySetMap().foreach {
@@ -112,7 +136,7 @@ class AndroidReachingFactsAnalysisBuilder(clm : ClassLoadManager){
         if(y.contains(iotaFact)){
           result.getEntrySetMap.update(x, y - iotaFact)
           if(result.getEntrySetMap().apply(x).contains(iotaFact))
-              msg_critical(TITLE, "bad: iota fact is still present in irfa result that is = " + result)
+              msg_critical(TITLE, "bad: iota fact is still present in new irfa result that is for node = " + x)
         }           
       }
     }
@@ -398,7 +422,10 @@ class AndroidReachingFactsAnalysisBuilder(clm : ClassLoadManager){
     }
     def apply(s : ISet[RFAFact], a : Action, currentNode : ICFGLocNode) : ISet[RFAFact] = s
   }
-  
+ 
+  // "Lcom/Sankar/localServiceAndStatefulicc/LocalWordService;.getString:()Ljava/lang/String;", 
+  val rpcList: List[String] = List("Lcom/Sankar/localServiceAndStatefulicc/LocalWordService;.injectString:(Ljava/lang/String;)V") // later we have to move/maintain this list in app-pool
+
   class Callr
   		extends CallResolver[RFAFact] {
 
@@ -409,6 +436,9 @@ class AndroidReachingFactsAnalysisBuilder(clm : ClassLoadManager){
       ReachingFactsAnalysisHelper.updatePTAResultCallJump(cj, callerContext, s, ptaresult)
       val calleeSet = ReachingFactsAnalysisHelper.getCalleeSet(cj, callerContext, ptaresult)
       val icfgCallnode = icfg.getICFGCallNode(callerContext)
+      if(cj.callExp.exp.toString().contains("LocalWordService.getString") || cj.callExp.exp.toString().contains("LocalWordService.injectString")){
+        System.out.println("icfgCallnode" + icfgCallnode.toString() + "  cj.callExp.exp " + cj.callExp.exp.toString())
+      }
       icfgCallnode.asInstanceOf[ICFGCallNode].setCalleeSet(calleeSet)
       val icfgReturnnode = icfg.getICFGReturnNode(callerContext)
       icfgReturnnode.asInstanceOf[ICFGReturnNode].setCalleeSet(calleeSet)
@@ -446,8 +476,7 @@ class AndroidReachingFactsAnalysisBuilder(clm : ClassLoadManager){
         callee =>
           val calleep = callee.callee
           if(AndroidReachingFactsAnalysisHelper.isICCCall(calleep) || AndroidReachingFactsAnalysisHelper.isModelCall(calleep)){
-            pureNormalFlag = false
-            
+            pureNormalFlag = false            
             if(AndroidReachingFactsAnalysisHelper.isICCCall(calleep)) {
               if(AndroidReachingFactsAnalysisConfig.resolve_icc){
 	              val factsForCallee = getFactsForICCTarget(s, cj, calleep, callerContext)
@@ -483,14 +512,29 @@ class AndroidReachingFactsAnalysisBuilder(clm : ClassLoadManager){
             	val (g, k) = AndroidReachingFactsAnalysisHelper.doModelCall(ptaresult, calleep, args, cj.lhss.map(lhs=>lhs.name.name), callerContext)
               tmpReturnFacts = tmpReturnFacts ++ factsForCallee ++ g -- k
             }
-          } else { // for normal call
-            if(!icfg.isProcessed(calleep.getSignature, callerContext)){
-              icfg.collectCfgToBaseGraph[String](calleep, callerContext, false)
-            	icfg.extendGraph(calleep.getSignature, callerContext)
+          } else { // for RPC call or normal call
+            val callerComp = callerContext.getComponentName
+            val rpcCallFlag = rpcList.contains(calleep.getSignature) && !callerComp.contains("LocalWordService")
+            if(rpcCallFlag){ // for a RPC-call           
+              val factsForCallee = getFactsForCallee(s, cj, calleep, callerContext)
+              returnFacts --= factsForCallee
+              val rpcData: RpcData[RFAFact] = getPropertyOrElse(AmandroidAlirConstants.RPC_DATA, new RpcData[RFAFact])
+              val newFacts = mapFactsToCallee(factsForCallee, callerContext, cj, calleep)
+              val reducedNewFacts = newFacts.filter {x => !x.s.toString().contains("@@RFAiota")}
+              rpcData.callerCallNode = icfgCallnode.asInstanceOf[ICFGCallNode]
+              rpcData.callerRetNode = icfgReturnnode.asInstanceOf[ICFGReturnNode]
+              rpcData.callFacts ++=reducedNewFacts
+              setProperty(AmandroidAlirConstants.RPC_DATA, rpcData)
             }
-            val factsForCallee = getFactsForCallee(s, cj, calleep, callerContext)
-            returnFacts --= factsForCallee
-            calleeFactsMap += (icfg.entryNode(calleep.getSignature, callerContext) -> mapFactsToCallee(factsForCallee, callerContext, cj, calleep))
+            else{ // for a normal call           
+              if(!icfg.isProcessed(calleep.getSignature, callerContext)){
+                icfg.collectCfgToBaseGraph[String](calleep, callerContext, false)
+                icfg.extendGraph(calleep.getSignature, callerContext)
+              }
+              val factsForCallee = getFactsForCallee(s, cj, calleep, callerContext)
+              returnFacts --= factsForCallee
+              calleeFactsMap += (icfg.entryNode(calleep.getSignature, callerContext) -> mapFactsToCallee(factsForCallee, callerContext, cj, calleep))
+            }
           }
       }
       returnFacts ++= tmpReturnFacts
@@ -554,11 +598,16 @@ class AndroidReachingFactsAnalysisBuilder(clm : ClassLoadManager){
             if(exp.isInstanceOf[NameExp]){
               val slot = VarSlot(exp.asInstanceOf[NameExp].name.name)
               var value = ptaresult.pointsToSet(slot, callerContext)
+              val callerComp = callerContext.getComponentName
+              val rpcCallFlag = rpcList.contains(callee.getSignature) && !callerComp.contains("LocalWordService")
+              if(rpcCallFlag){
+                System.out.println("in getFactsForCallee: rpcCall " + " and callee.getSignature = " + callee.getSignature)
+              }
               if(typ != "static" && i == 0){
                 value = 
                   value.filter{
                   	r =>
-                      !r.isInstanceOf[NullInstance] && !r.isInstanceOf[UnknownInstance] && shouldPass(r, callee, typ)
+                      !r.isInstanceOf[NullInstance] && (!r.isInstanceOf[UnknownInstance] || rpcCallFlag) && shouldPass(r, callee, typ)
                   }
               } 
               calleeFacts ++= value.map{r => RFAFact(slot, r)}
@@ -674,6 +723,9 @@ class AndroidReachingFactsAnalysisBuilder(clm : ClassLoadManager){
     }
     
     def getAndMapFactsForCaller(calleeS : ISet[RFAFact], callerNode : ICFGNode, calleeExitNode : ICFGVirtualNode) : ISet[RFAFact] ={
+      if(calleeExitNode.getCode.contains("LocalWordService;.injectString")){
+        System.out.println("calleeExitNode.getCode " + calleeExitNode.getCode)
+      }
       val result = msetEmpty[RFAFact]
       /**
        * adding global facts to result
@@ -709,8 +761,7 @@ class AndroidReachingFactsAnalysisBuilder(clm : ClassLoadManager){
       
       callerNode match{
         case crn : ICFGReturnNode =>
-          val calleeVarFacts = calleeS.filter(_.s.isInstanceOf[VarSlot]).map{f=>(f.s.asInstanceOf[VarSlot], f.v)}.toSet
-          
+          val calleeVarFacts = calleeS.filter(_.s.isInstanceOf[VarSlot]).map{f=>(f.s.asInstanceOf[VarSlot], f.v)}.toSet          
           val cj = Center.getProcedureWithoutFailing(crn.getOwner).getProcedureBody.location(crn.getLocIndex).asInstanceOf[JumpLocation].jump.asInstanceOf[CallJump]
           val lhsSlots : ISeq[VarSlot] = cj.lhss.map{lhs=>VarSlot(lhs.name.name)}
           val retSlots : MSet[MList[VarSlot]] = msetEmpty

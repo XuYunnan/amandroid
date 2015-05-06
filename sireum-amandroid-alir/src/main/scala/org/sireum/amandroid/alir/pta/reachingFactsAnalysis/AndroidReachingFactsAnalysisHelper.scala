@@ -69,7 +69,7 @@ object AndroidReachingFactsAnalysisHelper {
         //appPool.merge(compPool(ep))
         worklist += ep
     }
-    val phase2=false
+    val phase2=true
     if(phase2){
       while(!worklist.isEmpty){
         converged = true
@@ -94,7 +94,12 @@ object AndroidReachingFactsAnalysisHelper {
           worklist ++= appPool.findIntentDestComp(compPool(ep))
           appPool.mergeIntentFacts(compPool(ep))
         }
-        System.out.println(" irfaResult.getExtraInfo.getIntentFacts at end of convergence loop = " + irfaResult.getExtraInfo.getIntentFacts)
+        if(appPool.hasLessRpcFactsThan(compPool(ep))){
+          worklist ++= entryPoints
+          appPool.mergeRpcData(compPool(ep))
+        }
+        System.out.println("at end of convergence loop: irfaResult.getExtraInfo.getRpcData callfacts = " + irfaResult.getExtraInfo.getRpcData.callFacts)
+        System.out.println(" and retfacts = " + irfaResult.getExtraInfo.getRpcData.retFacts)
   //      System.out.println(" compPool.getIntentFacts et end of while = " + compPool(ep).getIntentFacts)
   //      System.out.println(" appPool.getIntentFacts at end of while = " + appPool.getIntentFacts)
   //      System.out.println(" irfaResult.getExtraInfo.getStaticFacts = " + irfaResult.getExtraInfo.getStaticFacts())

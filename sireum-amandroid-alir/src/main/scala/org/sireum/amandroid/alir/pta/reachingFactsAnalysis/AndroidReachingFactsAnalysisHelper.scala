@@ -27,6 +27,7 @@ import org.sireum.jawa.alir.pta.PTAResult
 import org.sireum.jawa.util.MyTimer
 import org.sireum.jawa.alir.dataFlowAnalysis.ExtraInfo
 import org.sireum.jawa.alir.dataFlowAnalysis.InterProceduralDataFlowGraph
+import org.sireum.jawa.Center
 
 /**
  * @author <a href="mailto:fgwei@k-state.edu">Fengguo Wei</a>
@@ -36,20 +37,43 @@ object AndroidReachingFactsAnalysisHelper {
 	private final val TITLE = "AndroidReachingFactsAnalysisHelper"
 	def isModelCall(calleeProc : JawaProcedure) : Boolean = {
     AndroidModelCallHandler.isModelCall(calleeProc)
-  }
-  
+  } 
   def doModelCall(s : PTAResult, calleeProc : JawaProcedure, args : List[String], retVars : Seq[String], currentContext : Context) : (ISet[RFAFact], ISet[RFAFact]) = {
     AndroidModelCallHandler.doModelCall(s, calleeProc, args, retVars, currentContext)
-  }
-  
+  }  
   def isICCCall(calleeProc : JawaProcedure) : Boolean = {
     AndroidModelCallHandler.isICCCall(calleeProc)
-  }
-  
+  } 
   def doICCCall(s : PTAResult, calleeProc : JawaProcedure, args : List[String], retVars : Seq[String], currentContext : Context) : (ISet[RFAFact], ISet[JawaProcedure]) = {
     AndroidModelCallHandler.doICCCall(s, calleeProc, args, retVars, currentContext)
   }
-  
+  def isServiceAndHasRpcMethod(record : JawaRecord) = {
+    var result = false
+    val ancestors = Center.getRecordHierarchy.getAllSuperClassesOf(record)
+    val sAnc = ancestors.filter { x => x.getName == AndroidEntryPointConstants.SERVICE_CLASS}
+    if(!sAnc.isEmpty){
+      val procs = record.getProcedures.filter { 
+        proc => 
+          !(proc.isConstructor || AndroidEntryPointConstants.getServiceLifecycleMethods().contains(proc.getSubSignature)) 
+      }
+      if(!procs.isEmpty)
+        result = true
+    }
+    result
+  } 
+  def getRpcMethods(record : JawaRecord): Set[JawaProcedure] = {
+    var result: MSet[JawaProcedure] = msetEmpty
+    val ancestors = Center.getRecordHierarchy.getAllSuperClassesOf(record)
+    val sAnc = ancestors.filter { x => x.getName == AndroidEntryPointConstants.SERVICE_CLASS}
+    if(!sAnc.isEmpty){
+      val procs = record.getProcedures.filter { 
+        proc => 
+          !(proc.isConstructor || AndroidEntryPointConstants.getServiceLifecycleMethods().contains(proc.getSubSignature)) 
+      }
+      result ++=procs
+    }
+    result.toSet
+  }
   def doIrfaMerge(entryPoints:Set[JawaProcedure], parallel: Boolean, timer : Option[MyTimer]) ={    
     //initialize the appPool and worklist           
     var idfgMap : MMap[JawaProcedure, InterProceduralDataFlowGraph] = mmapEmpty
@@ -98,8 +122,10 @@ object AndroidReachingFactsAnalysisHelper {
           worklist ++= entryPoints
           appPool.mergeRpcData(compPool(ep))
         }
-        System.out.println("at end of convergence loop: irfaResult.getExtraInfo.getRpcData callfacts = " + irfaResult.getExtraInfo.getRpcData.callFacts)
-        System.out.println(" and retfacts = " + irfaResult.getExtraInfo.getRpcData.retFacts)
+        System.out.println("at end of convergence loop: irfaResult.getExtraInfo.getRpcData callfacts = " + 
+            irfaResult.getExtraInfo.getRpcData.getCallersByCallee(irfaResult.getExtraInfo.getRpcData.getCalleeCallers.keySet.head).head.callFacts)
+        System.out.println(" and retfacts = " + 
+            irfaResult.getExtraInfo.getRpcData.getCallersByCallee(irfaResult.getExtraInfo.getRpcData.getCalleeCallers.keySet.head).head.retFacts)
   //      System.out.println(" compPool.getIntentFacts et end of while = " + compPool(ep).getIntentFacts)
   //      System.out.println(" appPool.getIntentFacts at end of while = " + appPool.getIntentFacts)
   //      System.out.println(" irfaResult.getExtraInfo.getStaticFacts = " + irfaResult.getExtraInfo.getStaticFacts())
@@ -142,4 +168,63 @@ object AndroidReachingFactsAnalysisHelper {
     }
     appIdfg
    }
+}
+
+object AndroidEntryPointConstants {
+  final val ACTIVITY_CLASS = "android.app.Activity"
+  final val SERVICE_CLASS = "android.app.Service"
+  final val BROADCAST_RECEIVER_CLASS = "android.content.BroadcastReceiver"
+  final val CONTENT_PROVIDER_CLASS = "android.content.ContentProvider"
+  final val APPLICATION_CLASS = "[|android:app:Application|]"
+  
+  final val APPLICATION_ONCREATE = "onCreate:()V"
+  final val APPLICATION_ONTERMINATE = "onTerminate()V"
+    
+  final val ACTIVITY_ONCREATE = "onCreate:(Landroid/os/Bundle;)V"
+  final val ACTIVITY_ONSTART = "onStart:()V"
+  final val ACTIVITY_ONRESTOREINSTANCESTATE = "onRestoreInstanceState:(Landroid/os/Bundle;)V"
+  final val ACTIVITY_ONPOSTCREATE = "onPostCreate:(Landroid/os/Bundle;)V"
+  final val ACTIVITY_ONRESUME = "onResume:()V"
+  final val ACTIVITY_ONPOSTRESUME = "onPostResume:()V"
+  final val ACTIVITY_ONCREATEDESCRIPTION = "onCreateDescription:()Ljava/lang/CharSequence;"
+  final val ACTIVITY_ONSAVEINSTANCESTATE = "onSaveInstanceState:(Landroid/os/Bundle;)V"
+  final val ACTIVITY_ONPAUSE = "onPause:()V"
+  final val ACTIVITY_ONSTOP = "onStop:()V"
+  final val ACTIVITY_ONRESTART = "onRestart:()V"
+  final val ACTIVITY_ONDESTROY = "onDestroy:()V"
+  
+  final val SERVICE_ONCREATE = "onCreate:()V"
+  final val SERVICE_ONSTART1 = "onStart:(Landroid/content/Intent;I)V"
+  final val SERVICE_ONSTART2 = "onStartCommand:(Landroid/content/Intent;II)I"
+  final val SERVICE_ONBIND = "onBind:(Landroid/content/Intent;)Landroid/os/IBinder;"
+  final val SERVICE_ONREBIND = "onRebind:(Landroid/content/Intent;)V"
+  final val SERVICE_ONUNBIND = "onUnbind:(Landroid/content/Intent;)Z"
+  final val SERVICE_ONDESTROY = "onDestroy:()V"
+  
+  final val BROADCAST_ONRECEIVE = "onReceive:(Landroid/content/Context;Landroid/content/Intent;)V"
+  
+  final val CONTENTPROVIDER_ONCREATE = "onCreate:()Z"
+  
+  final val INTENT_NAME = "android.content.Intent"
+  final val ACTIVITY_SETINTENT_SIG = "Landroid/app/Activity;.setIntent:(Landroid/content/Intent;)V"
+  
+  private final val applicationMethods = List(APPLICATION_ONCREATE, APPLICATION_ONTERMINATE)
+  private final val activityMethods = List(ACTIVITY_ONCREATE, ACTIVITY_ONDESTROY, ACTIVITY_ONPAUSE,
+    ACTIVITY_ONRESTART, ACTIVITY_ONRESUME, ACTIVITY_ONSTART, ACTIVITY_ONSTOP,
+    ACTIVITY_ONSAVEINSTANCESTATE, ACTIVITY_ONRESTOREINSTANCESTATE,
+    ACTIVITY_ONCREATEDESCRIPTION, ACTIVITY_ONPOSTCREATE, ACTIVITY_ONPOSTRESUME)
+  private final val serviceMethods = List(SERVICE_ONCREATE, SERVICE_ONDESTROY, SERVICE_ONSTART1,
+    SERVICE_ONSTART2, SERVICE_ONBIND, SERVICE_ONREBIND, SERVICE_ONUNBIND)
+  private final val broadcastMethods = List(BROADCAST_ONRECEIVE)
+  private final val contentproviderMethods = List(CONTENTPROVIDER_ONCREATE)
+  
+  def getApplicationLifecycleMethods() : List[String] = applicationMethods
+  
+  def getActivityLifecycleMethods() : List[String] = activityMethods
+  
+  def getServiceLifecycleMethods() : List[String] = serviceMethods
+  
+  def getBroadcastLifecycleMethods() : List[String] = broadcastMethods
+  
+  def getContentproviderLifecycleMethods() : List[String] = contentproviderMethods
 }

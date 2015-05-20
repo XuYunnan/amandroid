@@ -18,6 +18,7 @@ import org.sireum.amandroid.appInfo.AppInfoCollector
 import org.sireum.jawa.alir.dataFlowAnalysis.InterProceduralDataFlowGraph
 import org.sireum.jawa.alir.dataFlowAnalysis.InterProceduralMonotoneDataFlowAnalysisResult
 import org.sireum.jawa.alir.pta.PTAResult
+import org.sireum.jawa.JawaProcedure
 
 /**
  * this is an object, which hold information of apps. e.g. components, intent-filter database, etc.
@@ -29,6 +30,8 @@ object AppCenter {
   
 	private var components : ISet[JawaRecord] = isetEmpty
 	
+  private var rpcMethods : ISet[JawaProcedure] = isetEmpty
+  
 	private var dynamicRegisteredComponents : IMap[JawaRecord, Boolean] = imapEmpty
 	
 	private var intentFdb : IntentFilterDataBase = new IntentFilterDataBase()
@@ -36,8 +39,12 @@ object AppCenter {
 	def addComponent(comp : JawaRecord) = this.synchronized{this.components += comp}
 	
 	def setComponents(comps : ISet[JawaRecord]) = this.synchronized{this.components ++= comps}
+  
+  def setRpcMethods(rpcs : ISet[JawaProcedure]) = this.synchronized{this.rpcMethods ++= rpcs}
 	
 	def getComponents = this.components
+  
+  def getRpcMethods = this.rpcMethods
 	
 	def addDynamicRegisteredComponent(comp : JawaRecord, precise : Boolean) = this.synchronized{this.dynamicRegisteredComponents += (comp -> precise)}
 	

@@ -178,7 +178,10 @@ class AppInfoCollector(apkUri : FileResourceUri, outputUri : FileResourceUri, ti
 	        codeLineCounter = clCounter
         }
     }
+    var rpcProcs = isetEmpty[JawaProcedure]
+    components.map { x => rpcProcs ++= AppInfoCollector.getRpcMethods(x)}
 		AppCenter.setComponents(components)
+    AppCenter.setRpcMethods(rpcProcs)
 		AppCenter.updateIntentFilterDB(this.intentFdb)
 		AppCenter.setAppInfo(this)
 		msg_normal(TITLE, "Entry point calculation done.")
@@ -275,4 +278,33 @@ object AppInfoCollector {
 //	  this.sensitiveLayoutContainers = analysisHelper.getSensitiveLayoutContainer(this.layoutControls)
 		analysisHelper
 	}
+  def isServiceAndHasRpcMethod(record : JawaRecord) = {
+    var result = false
+    val ancestors = Center.getRecordHierarchy.getAllSuperClassesOf(record)
+    val sAnc = ancestors.filter { x => x.getName == AndroidEntryPointConstants.SERVICE_CLASS}
+    if(!sAnc.isEmpty){
+      val procs = record.getProcedures.filter { 
+        proc => 
+          !(proc.isConstructor || AndroidEntryPointConstants.getServiceLifecycleMethods().contains(proc.getSubSignature)
+              || proc.getShortName == AndroidConstants.MAINCOMP_ENV || proc.getShortName == AndroidConstants.COMP_ENV) 
+      }
+      if(!procs.isEmpty)
+        result = true
+    }
+    result
+  } 
+  def getRpcMethods(record : JawaRecord): Set[JawaProcedure] = {
+    var result: MSet[JawaProcedure] = msetEmpty
+    val ancestors = Center.getRecordHierarchy.getAllSuperClassesOf(record)
+    val sAnc = ancestors.filter { x => x.getName == AndroidEntryPointConstants.SERVICE_CLASS}
+    if(!sAnc.isEmpty){
+      val procs = record.getProcedures.filter { 
+        proc => 
+          !(proc.isConstructor || AndroidEntryPointConstants.getServiceLifecycleMethods().contains(proc.getSubSignature)
+              || proc.getShortName == AndroidConstants.MAINCOMP_ENV || proc.getShortName == AndroidConstants.COMP_ENV) 
+      }
+      result ++=procs
+    }
+    result.toSet
+  }
 }

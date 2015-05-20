@@ -48,6 +48,8 @@ import org.sireum.jawa.alir.dataFlowAnalysis.InterProceduralMonotoneDataFlowAnal
 import org.sireum.jawa.alir.dataFlowAnalysis.InterProceduralMonotoneDataFlowAnalysisFrameworkExtended
 import org.sireum.jawa.alir.dataFlowAnalysis.RpcData
 import org.sireum.jawa.alir.dataFlowAnalysis.RpcCaller
+import org.sireum.amandroid.appInfo.AppInfoCollector
+import org.sireum.amandroid.AppCenter
 
 /**
  * @author <a href="mailto:fgwei@k-state.edu">Fengguo Wei</a>
@@ -102,15 +104,15 @@ class AndroidReachingFactsAnalysisBuilder(clm : ClassLoadManager){
     } else existingIdfg
     this.icfg = idfg.icfg
     this.ptaresult = idfg.ptaresult
-    val initContext = new Context(GlobalConfig.ICFG_CONTEXT_K).setComponentName(entryPointProc.getName) // change it to entryPoint Record
+    val initContext = new Context(GlobalConfig.ICFG_CONTEXT_K).setComponentName(entryPointProc.getDeclaringRecord.getName) 
     if(existingIdfg==null)
       this.icfg.collectCfgToBaseGraph(entryPointProc, initContext.copy, true)
     val iotaFact = RFAFact(VarSlot("@@RFAiota"), NullInstance(initContext.copy))  
     val iota : ISet[RFAFact] = initialFacts + iotaFact
     // hack1 for rpc; flowing callfacts from extraInfo (in app-pool) to calleeEntryNode
     val entryRec = entryPointProc.getDeclaringRecord
-    if(AndroidReachingFactsAnalysisHelper.isServiceAndHasRpcMethod(entryRec)){
-      val rpcMethods = AndroidReachingFactsAnalysisHelper.getRpcMethods(entryRec)
+    if(AppInfoCollector.isServiceAndHasRpcMethod(entryRec)){
+      val rpcMethods = AppInfoCollector.getRpcMethods(entryRec)
       val rpcMethodSigs = rpcMethods.map { x => x.getSignature}
       if(existingIrfaResult != null){ // in second phase
         val rpcData = existingIrfaResult.extraInfo.getRpcData
@@ -135,18 +137,18 @@ class AndroidReachingFactsAnalysisBuilder(clm : ClassLoadManager){
       }
     }
     // hack 2 for rpc; flowing returnfacts from extraInfo (in app-pool) to callerRetNode
-    if(entryPointProc.getName.contains("MainActivity")){
-      if(existingIrfaResult != null){ // in second phase
-        val rpcData = existingIrfaResult.extraInfo.getRpcData
-        val callers = rpcData.getCallersByCallee(rpcData.getCalleeCallers.keySet.head)
-        val caller = callers.head
-        val callerRetnode = caller.callerRetNode
-        val retFacts = caller.retFacts
-        if(callerRetnode != null && !retFacts.isEmpty){ 
-          val prevFacts = existingIrfaResult.getEntrySetMap.apply(callerRetnode)
-          existingIrfaResult.getEntrySetMap.update(callerRetnode, prevFacts ++ retFacts)
-        }
-      }
+    if(existingIrfaResult != null){ // in second phase
+      val rpcData = existingIrfaResult.extraInfo.getRpcData
+      val callers = rpcData.getCallers
+      callers.foreach { 
+        caller =>
+          val callerRetnode = caller.callerRetNode
+          val retFacts = caller.retFacts
+          if(callerRetnode != null && !retFacts.isEmpty && existingIrfaResult.getEntrySetMap.contains(callerRetnode)){ 
+            val prevFacts = existingIrfaResult.getEntrySetMap.apply(callerRetnode)
+            existingIrfaResult.getEntrySetMap.update(callerRetnode, prevFacts ++ retFacts)
+          }
+      }        
     }
     // end of hacks for rpc    
     var result = InterProceduralMonotoneDataFlowAnalysisFrameworkExtended[RFAFact](icfg, existingIrfaResult,
@@ -443,12 +445,14 @@ class AndroidReachingFactsAnalysisBuilder(clm : ClassLoadManager){
     def apply(s : ISet[RFAFact], a : Action, currentNode : ICFGLocNode) : ISet[RFAFact] = s
   }
  
-  // "Lcom/Sankar/localServiceAndStatefulicc/LocalWordService;.getString:()Ljava/lang/String;", 
-  val rpcList: List[String] = List("Lcom/Sankar/localServiceAndStatefulicc/LocalWordService;.injectString:(Ljava/lang/String;)V") // later we have to move/maintain this list in app-pool
-
   class Callr
   		extends CallResolver[RFAFact] {
-
+      private def isRpcCall(callerContext:Context, calleep:JawaProcedure) = {
+        val callerCompName = callerContext.getComponentName
+        val rpcMethods = AppCenter.getRpcMethods
+        val calleeCompName = calleep.getDeclaringRecord.getName
+        rpcMethods.contains(calleep) && (callerCompName != calleeCompName)
+      }
     /**
      * It returns the facts for each callee entry node and caller return node
      */
@@ -533,14 +537,12 @@ class AndroidReachingFactsAnalysisBuilder(clm : ClassLoadManager){
               tmpReturnFacts = tmpReturnFacts ++ factsForCallee ++ g -- k
             }
           } else { // for RPC call or normal call
-            val callerComp = callerContext.getComponentName
-            val rpcCallFlag = rpcList.contains(calleep.getSignature) && !callerComp.contains("LocalWordService")
-            if(rpcCallFlag){ // for a RPC-call           
+            if(isRpcCall(callerContext, calleep)){ // for a RPC-call           
               val factsForCallee = getFactsForCallee(s, cj, calleep, callerContext)
               returnFacts --= factsForCallee
               val rpcData: RpcData[RFAFact] = getPropertyOrElse(AmandroidAlirConstants.RPC_DATA, new RpcData[RFAFact])
               val newFacts = mapFactsToCallee(factsForCallee, callerContext, cj, calleep)
-              val reducedNewFacts = newFacts.filter {x => !x.s.toString().contains("@@RFAiota")}
+              val reducedNewFacts = newFacts.filter {x => !x.s.toString().contains("@@RFAiota")} // as this is an ICC flow
               val callerCallNode = icfgCallnode.asInstanceOf[ICFGCallNode]
               val callerRetNode = icfgReturnnode.asInstanceOf[ICFGReturnNode]
               val caller = RpcCaller[RFAFact](callerCallNode, callerRetNode)
@@ -620,16 +622,11 @@ class AndroidReachingFactsAnalysisBuilder(clm : ClassLoadManager){
             if(exp.isInstanceOf[NameExp]){
               val slot = VarSlot(exp.asInstanceOf[NameExp].name.name)
               var value = ptaresult.pointsToSet(slot, callerContext)
-              val callerComp = callerContext.getComponentName
-              val rpcCallFlag = rpcList.contains(callee.getSignature) && !callerComp.contains("LocalWordService")
-              if(rpcCallFlag){
-                System.out.println("in getFactsForCallee: rpcCall " + " and callee.getSignature = " + callee.getSignature)
-              }
               if(typ != "static" && i == 0){
                 value = 
                   value.filter{
                   	r =>
-                      !r.isInstanceOf[NullInstance] && (!r.isInstanceOf[UnknownInstance] || rpcCallFlag) && shouldPass(r, callee, typ)
+                      !r.isInstanceOf[NullInstance] && (!r.isInstanceOf[UnknownInstance] || isRpcCall(callerContext, callee)) && shouldPass(r, callee, typ)
                   }
               } 
               calleeFacts ++= value.map{r => RFAFact(slot, r)}
@@ -854,92 +851,94 @@ class AndroidReachingFactsAnalysisBuilder(clm : ClassLoadManager){
       }
       
       /**
-       * preparing result for RPC callerRetNode
+       * preparing result for RPC callerRetNodes
        */
-      if(calleeExitNode.getCode.contains("LocalWordService;.injectString")){ // check that it is a rpc calleee exit node
-        System.out.println("calleeExitNode.getCode " + calleeExitNode.getCode)
-        val rpcData: RpcData[RFAFact] = getPropertyOrElse(AmandroidAlirConstants.RPC_DATA, new RpcData[RFAFact])
-        val cs = rpcData.getCalleeCallers.keySet
-        val clee = if(!cs.isEmpty) cs.head else null
-        val rc = if(clee != null) rpcData.getCallersByCallee(clee).head else null
-        val crn: ICFGReturnNode = if(rc != null) rc.callerRetNode else null
-        if(crn != null){
-          val calleeVarFacts = calleeS.filter(_.s.isInstanceOf[VarSlot]).map{f=>(f.s.asInstanceOf[VarSlot], f.v)}.toSet          
-          val cj = Center.getProcedureWithoutFailing(crn.getOwner).getProcedureBody.location(crn.getLocIndex).asInstanceOf[JumpLocation].jump.asInstanceOf[CallJump]
-          val lhsSlots : ISeq[VarSlot] = cj.lhss.map{lhs=>VarSlot(lhs.name.name)}
-          val retSlots : MSet[MList[VarSlot]] = msetEmpty
-          calleeProcedure.body match{
-            case ib : ImplementedBody =>
-              ib.locations.foreach{
-                loc=>
-                  if(isReturnJump(loc)){
-                    val rj = loc.asInstanceOf[JumpLocation].jump.asInstanceOf[ReturnJump]
-                    rj.exp match{
-                      case Some(n) => 
-                        n match{
-                          case te : TupleExp => 
-                            val tmplist : MList[VarSlot] = mlistEmpty
-                            te.exps.foreach{
-                              exp =>
-                                exp match {
-                                  case ne : NameExp =>
-                                    tmplist += VarSlot(ne.name.name)
-                                  case _ =>
+      val rpcMethodSigs = AppCenter.getRpcMethods.map { m => m.getSignature }
+      val rpcData: RpcData[RFAFact] = getPropertyOrElse(AmandroidAlirConstants.RPC_DATA, new RpcData[RFAFact])
+      val rpcCallee = Center.getProcedureWithoutFailing(calleeExitNode.getOwner)
+      val rCallers = rpcData.getCallersByCallee(rpcCallee)
+      if(rpcMethodSigs.contains(calleeExitNode.getOwner)){ // check that it is a rpc calleee exit node
+        System.out.println("calleeExitNode.getOwner " + calleeExitNode.getOwner)
+        rCallers.foreach { 
+          rCaller =>
+            val crn: ICFGReturnNode = rCaller.callerRetNode
+            if(crn != null){
+              val calleeVarFacts = calleeS.filter(_.s.isInstanceOf[VarSlot]).map{f=>(f.s.asInstanceOf[VarSlot], f.v)}.toSet          
+              val cj = Center.getProcedureWithoutFailing(crn.getOwner).getProcedureBody.location(crn.getLocIndex).asInstanceOf[JumpLocation].jump.asInstanceOf[CallJump]
+              val lhsSlots : ISeq[VarSlot] = cj.lhss.map{lhs=>VarSlot(lhs.name.name)}
+              val retSlots : MSet[MList[VarSlot]] = msetEmpty
+              calleeProcedure.body match{
+                case ib : ImplementedBody =>
+                  ib.locations.foreach{
+                    loc=>
+                      if(isReturnJump(loc)){
+                        val rj = loc.asInstanceOf[JumpLocation].jump.asInstanceOf[ReturnJump]
+                        rj.exp match{
+                          case Some(n) => 
+                            n match{
+                              case te : TupleExp => 
+                                val tmplist : MList[VarSlot] = mlistEmpty
+                                te.exps.foreach{
+                                  exp =>
+                                    exp match {
+                                      case ne : NameExp =>
+                                        tmplist += VarSlot(ne.name.name)
+                                      case _ =>
+                                    }
                                 }
+                                retSlots += tmplist
+                              case _ => 
                             }
-                            retSlots += tmplist
-                          case _ => 
+                          case None =>
                         }
-                      case None =>
-                    }
-                  }
-              }
-            case _ =>
-          }
-          lhsSlots.foreach{
-            lhsSlot =>
-              var values : ISet[Instance] = isetEmpty
-              retSlots.foreach{
-                retSlotList =>
-                  calleeVarFacts.foreach{
-                    case (s, v) =>
-                      if(s == retSlotList(lhsSlots.indexOf(lhsSlot))){
-                        values += v
                       }
                   }
+                case _ =>
               }
-              resultForRpcCaller ++= values.map(v => RFAFact(lhsSlot, v))
-              resultForRpcCaller ++= ReachingFactsAnalysisHelper.getRelatedHeapFacts(values, calleeS)
-          }
-          cj.callExp.arg match{
-            case te : TupleExp => 
-              val argSlots = te.exps.map{
-                exp =>
-                  exp match{
-                    case ne : NameExp => VarSlot(ne.name.name)
-                    case _ => VarSlot(exp.toString)
+              lhsSlots.foreach{
+                lhsSlot =>
+                  var values : ISet[Instance] = isetEmpty
+                  retSlots.foreach{
+                    retSlotList =>
+                      calleeVarFacts.foreach{
+                        case (s, v) =>
+                          if(s == retSlotList(lhsSlots.indexOf(lhsSlot))){
+                            values += v
+                          }
+                      }
                   }
+                  resultForRpcCaller ++= values.map(v => RFAFact(lhsSlot, v))
+                  resultForRpcCaller ++= ReachingFactsAnalysisHelper.getRelatedHeapFacts(values, calleeS)
               }
-              for(i <- 0 to argSlots.size - 1){
-                val argSlot = argSlots(i)
-                var values : ISet[Instance] = isetEmpty
-                calleeVarFacts.foreach{
-                  case (s, v) =>
-                    if(paramSlots.isDefinedAt(i) && paramSlots(i) == s)
-                      values += v
-                }
-                resultForRpcCaller ++= values.map(v=>RFAFact(argSlot, v))
-                resultForRpcCaller ++= ReachingFactsAnalysisHelper.getRelatedHeapFacts(values, calleeS)
+              cj.callExp.arg match{
+                case te : TupleExp => 
+                  val argSlots = te.exps.map{
+                    exp =>
+                      exp match{
+                        case ne : NameExp => VarSlot(ne.name.name)
+                        case _ => VarSlot(exp.toString)
+                      }
+                  }
+                  for(i <- 0 to argSlots.size - 1){
+                    val argSlot = argSlots(i)
+                    var values : ISet[Instance] = isetEmpty
+                    calleeVarFacts.foreach{
+                      case (s, v) =>
+                        if(paramSlots.isDefinedAt(i) && paramSlots(i) == s)
+                          values += v
+                    }
+                    resultForRpcCaller ++= values.map(v=>RFAFact(argSlot, v))
+                    resultForRpcCaller ++= ReachingFactsAnalysisHelper.getRelatedHeapFacts(values, calleeS)
+                  }
+                case _ => throw new RuntimeException("wrong exp type: " + cj.callExp.arg)
               }
-            case _ => throw new RuntimeException("wrong exp type: " + cj.callExp.arg)
-          }
-          if(!resultForRpcCaller.isEmpty){
-            rpcData.getCallersByCallee(rpcData.getCalleeCallers.keySet.head).head.retFacts ++=resultForRpcCaller
-            setProperty(AmandroidAlirConstants.RPC_DATA, rpcData)
-          }      
+              if(!resultForRpcCaller.isEmpty){
+                rCaller.retFacts ++=resultForRpcCaller
+              }      
+            }
         }
       }
-      
+      setProperty(AmandroidAlirConstants.RPC_DATA, rpcData)
       /**
        * update pstresult with caller's return node and it's points-to info
        */
